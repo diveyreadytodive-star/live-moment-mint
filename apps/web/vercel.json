@@ -1,0 +1,6 @@
+{
+  "version": 2,
+  "installCommand": "cd ../.. && pnpm install --filter \"web...\" --frozen-lockfile",
+  "buildCommand": "cd ../.. && pnpm --filter @momento/shared build && pnpm exec prisma generate && pnpm --filter web build",
+  "outputDirectory": ".next"
+}
