@@ -1,14 +1,10 @@
-/**
- * MVP mint endpoint: records the mint in DB.
- * Phase 3: will verify on-chain time window and create mpl-core asset.
- */
 import { NextRequest, NextResponse } from 'next/server';
 import { PrismaClient } from '@prisma/client';
 
 const db = new PrismaClient();
 
 export async function POST(req: NextRequest) {
-  const { momentId, minter } = await req.json();
+  const { momentId, minter, txSig } = await req.json();
 
   if (!momentId || !minter) {
     return NextResponse.json({ error: 'Missing momentId or minter' }, { status: 400 });
@@ -22,16 +18,12 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Minting window is closed' }, { status: 409 });
   }
 
-  // TODO Phase 3: build and send mint_moment anchor tx, get assetId from tx
-  const assetId = `pending-${Date.now()}`;
-  const txSig = `simulated-${Date.now()}`;
-
   const mint = await (db as any).mint.create({
     data: {
       momentId,
       minterPubkey: minter,
-      assetId,
-      txSig,
+      assetId: txSig ?? `pending-${Date.now()}`,
+      txSig: txSig ?? `pending-${Date.now()}`,
       createdAt: nowSec,
     },
   });
