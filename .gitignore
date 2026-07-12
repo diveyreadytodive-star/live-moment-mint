@@ -1,0 +1,16 @@
+node_modules/
+dist/
+.next/
+.env
+*.json.key
+target/
+.anchor/
+test-ledger/
+# Keep .env.example, ignore actual secrets
+!.env.example
+# Keypair files — NEVER commit
+devnet-keeper.json
+keeper*.json
+*-keypair.json
+*.sqlite
+*.db

@@ -1,0 +1,20 @@
+{
+  "name": "live-moment-mint",
+  "private": true,
+  "version": "0.1.0",
+  "engines": {
+    "node": ">=20",
+    "pnpm": ">=9"
+  },
+  "scripts": {
+    "build": "pnpm -r build",
+    "dev:keeper": "pnpm --filter keeper dev",
+    "dev:web": "pnpm --filter web dev"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "typescript": "^5.4.0",
+    "prettier": "^3.2.0",
+    "eslint": "^9.0.0"
+  }
+}

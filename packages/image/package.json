@@ -1,0 +1,18 @@
+{
+  "name": "@momento/image",
+  "version": "0.1.0",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch"
+  },
+  "devDependencies": {
+    "typescript": "*",
+    "@types/node": "*"
+  },
+  "dependencies": {
+    "@resvg/resvg-js": "^2.6.2",
+    "@momento/shared": "workspace:*"
+  }
+}

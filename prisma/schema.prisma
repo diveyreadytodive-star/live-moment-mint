@@ -1,0 +1,61 @@
+// Momento DB schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Fixture {
+  id        String   @id
+  p1Id      String
+  p2Id      String
+  p1Name    String
+  p2Name    String
+  p1IsHome  Boolean
+  p1Color   String   @default("#1a56db")
+  p2Color   String   @default("#e02424")
+  kickoffTs Int
+
+  moments   Moment[]
+}
+
+model Moment {
+  id          Int      @id @default(autoincrement())
+  fixtureId   String
+  kind        String   // GOAL | RESULT
+  seq         Int
+  tsEvent     Int
+  teamScorerId String?
+  playerId    String?
+  playerName  String?
+  minute      Int?
+  scoreP1     Int      @default(0)
+  scoreP2     Int      @default(0)
+  imageUrl    String?
+  metadataUrl String?
+  momentPda   String?
+  status      String   @default("OPEN") // OPEN | CLOSED | VOID
+  openTs      Int
+  closeTs     Int
+  proofRef    String?
+
+  fixture     Fixture? @relation(fields: [fixtureId], references: [id])
+  mints       Mint[]
+
+  @@unique([fixtureId, seq, kind])
+}
+
+model Mint {
+  id          Int      @id @default(autoincrement())
+  momentId    Int
+  minterPubkey String
+  assetId     String
+  txSig       String
+  createdAt   Int
+
+  moment      Moment   @relation(fields: [momentId], references: [id])
+}

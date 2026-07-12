@@ -1,0 +1,28 @@
+{
+  "name": "keeper",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "build": "tsc",
+    "dev": "ts-node --esm src/index.ts",
+    "start": "node dist/index.js",
+    "subscribe": "ts-node src/scripts/subscribe.ts",
+    "replay": "ts-node src/scripts/replay.ts"
+  },
+  "devDependencies": {
+    "typescript": "*",
+    "@types/node": "*",
+    "ts-node": "^10.9.0"
+  },
+  "dependencies": {
+    "@momento/shared": "workspace:*",
+    "@momento/txline": "workspace:*",
+    "@momento/image": "workspace:*",
+    "@coral-xyz/anchor": "^0.30.0",
+    "@solana/web3.js": "^1.95.0",
+    "@prisma/client": "^5.15.0",
+    "prisma": "^5.15.0",
+    "dotenv": "^16.4.0",
+    "axios": "^1.7.0"
+  }
+}
