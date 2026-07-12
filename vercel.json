@@ -1,12 +1,7 @@
 {
   "version": 2,
   "framework": "nextjs",
-  "installCommand": "pnpm install --frozen-lockfile",
+  "installCommand": "pnpm install --filter \"web...\" --frozen-lockfile",
   "buildCommand": "pnpm --filter @momento/shared build && pnpm exec prisma generate && pnpm --filter web build",
-  "outputDirectory": "apps/web/.next",
-  "functions": {
-    "apps/web/src/app/api/**": {
-      "maxDuration": 30
-    }
-  }
+  "outputDirectory": "apps/web/.next"
 }
