@@ -1,0 +1,12 @@
+{
+  "version": 2,
+  "buildCommand": "cd ../.. && pnpm install --frozen-lockfile && pnpm --filter @momento/shared build && pnpm exec prisma generate && pnpm --filter web build",
+  "outputDirectory": ".next",
+  "framework": "nextjs",
+  "installCommand": "echo 'install handled in buildCommand'",
+  "functions": {
+    "apps/web/src/app/api/**": {
+      "maxDuration": 30
+    }
+  }
+}
