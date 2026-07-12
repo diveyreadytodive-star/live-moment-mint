@@ -8,17 +8,17 @@
     "dev": "tsc --watch"
   },
   "devDependencies": {
-    "typescript": "*",
-    "@types/node": "*"
+    "@types/node": "*",
+    "typescript": "*"
   },
   "dependencies": {
     "@coral-xyz/anchor": "^0.30.0",
-    "@solana/web3.js": "^1.95.0",
+    "@momento/shared": "workspace:*",
     "@solana/spl-token": "^0.4.0",
+    "@solana/web3.js": "^1.95.0",
     "axios": "^1.7.0",
     "eventsource": "^2.0.2",
     "tweetnacl": "^1.0.3",
-    "zod": "^3.22.0",
-    "@momento/shared": "workspace:*"
+    "zod": "^3.22.0"
   }
 }

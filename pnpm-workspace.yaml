@@ -1,3 +1,16 @@
 packages:
   - 'apps/*'
   - 'packages/*'
+
+onlyBuiltDependencies:
+  - '@prisma/client'
+  - '@prisma/engines'
+  - prisma
+  - bufferutil
+  - utf-8-validate
+  - bigint-buffer
+  - blake-hash
+  - protobufjs
+  - tiny-secp256k1
+  - usb
+  - '@stellar/stellar-sdk'
