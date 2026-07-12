@@ -1,0 +1,130 @@
+{
+  "address": "CL6e7FZkgQ6GLwYbmcsz4kwi2hZzzWoP7ckWgSbvF7ja",
+  "metadata": {
+    "name": "moment_mint",
+    "version": "0.1.0",
+    "spec": "0.1.0",
+    "description": "Momento — on-chain minting windows for live soccer moments"
+  },
+  "instructions": [
+    {
+      "name": "open_moment_window",
+      "discriminator": [104, 125, 103, 198, 146, 135, 81, 158],
+      "accounts": [
+        {
+          "name": "moment",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              { "kind": "const", "value": [109, 111, 109, 101, 110, 116] },
+              { "kind": "arg", "path": "fixture_id" },
+              { "kind": "arg", "path": "seq" }
+            ]
+          }
+        },
+        {
+          "name": "authority",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        { "name": "fixture_id", "type": "string" },
+        { "name": "seq", "type": "u64" },
+        { "name": "open_ts", "type": "i64" },
+        { "name": "close_ts", "type": "i64" },
+        { "name": "kind", "type": "u8" },
+        { "name": "metadata_uri", "type": "string" }
+      ]
+    },
+    {
+      "name": "mint_moment",
+      "discriminator": [157, 243, 211, 63, 10, 118, 217, 42],
+      "accounts": [
+        {
+          "name": "moment",
+          "writable": true
+        },
+        {
+          "name": "minter",
+          "signer": true
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "void_moment",
+      "discriminator": [12, 33, 138, 249, 24, 5, 199, 204],
+      "accounts": [
+        {
+          "name": "moment",
+          "writable": true
+        },
+        {
+          "name": "authority",
+          "signer": true
+        }
+      ],
+      "args": []
+    }
+  ],
+  "accounts": [
+    {
+      "name": "Moment",
+      "discriminator": [245, 210, 75, 98, 220, 165, 70, 255]
+    }
+  ],
+  "events": [
+    {
+      "name": "MintEvent",
+      "discriminator": [197, 144, 146, 149, 66, 164, 95, 16]
+    }
+  ],
+  "errors": [
+    {
+      "code": 6000,
+      "name": "WindowNotOpen",
+      "msg": "Minting window is not open yet"
+    },
+    {
+      "code": 6001,
+      "name": "WindowClosed",
+      "msg": "Minting window has closed"
+    }
+  ],
+  "types": [
+    {
+      "name": "Moment",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          { "name": "authority", "type": "pubkey" },
+          { "name": "fixture_id", "type": "string" },
+          { "name": "seq", "type": "u64" },
+          { "name": "open_ts", "type": "i64" },
+          { "name": "close_ts", "type": "i64" },
+          { "name": "kind", "type": "u8" },
+          { "name": "metadata_uri", "type": "string" },
+          { "name": "mint_count", "type": "u64" },
+          { "name": "status", "type": "u8" }
+        ]
+      }
+    },
+    {
+      "name": "MintEvent",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          { "name": "fixture_id", "type": "string" },
+          { "name": "seq", "type": "u64" },
+          { "name": "minter", "type": "pubkey" },
+          { "name": "mint_count", "type": "u64" }
+        ]
+      }
+    }
+  ]
+}

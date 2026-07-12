@@ -1,71 +1,90 @@
-# Momento Hackathon — Phase 0 Setup Status
+# Momento Hackathon — Setup Status
 
 Date: 2026-07-13
 
-## Completed Steps
+## Phase 3: Anchor On-Chain Program — COMPLETE
 
-### Step 1: Devnet SOL — BLOCKED
-- Wallet: `CSrPnu3y3vUeRPpJmsVukXyDZbHKLw7sFyweSubj97ve`
-- Current balance: **0 SOL**
-- All airdrop methods hit rate limit from this IP:
-  - `faucet.solana.com` API — 429
-  - `solana airdrop` CLI — rate limit error
-  - `api.devnet.solana.com` RPC direct — 429
-  - `devnet-pow` PoW faucet — rate limit error
-- **Manual action required**: Fund the wallet with ~2 SOL devnet.
-  Options:
-  1. Visit https://faucet.solana.com from a browser and paste the wallet address
-  2. Wait for rate limit reset (usually 24h) and re-run: `solana airdrop 2 CSrPnu3y3vUeRPpJmsVukXyDZbHKLw7sFyweSubj97ve --url devnet`
-  3. Use a Discord faucet (Solana Discord #devnet-faucet channel)
+### Program Details
+- **Program ID**: `CL6e7FZkgQ6GLwYbmcsz4kwi2hZzzWoP7ckWgSbvF7ja`
+- **Network**: Solana devnet
+- **Deployed at slot**: 475792804
+- **Program data**: `4AHqY22XKWwvRNr4qtMxBBmBpZ1go79tgu865re9ChAQ`
+- **Upgrade authority**: `CSrPnu3y3vUeRPpJmsVukXyDZbHKLw7sFyweSubj97ve`
 
-### Step 2: TxLINE IDL — DONE
-- Source: https://github.com/txodds/tx-on-chain/blob/main/examples/devnet/idl/txoracle.json
-- Saved to: `packages/txline/idl/txoracle-devnet.json` (41,908 bytes)
-- Program ID confirmed: `6pW64gN1s2uqjHkn1unFeEjAwJkPGHoppGvS715wyP2J`
+### Instructions
+- `open_moment_window(fixture_id, seq, open_ts, close_ts, kind, metadata_uri)` — keeper calls this to create Moment PDA
+- `mint_moment()` — anyone calls during open window (increments mint_count, emits MintEvent)
+- `void_moment()` — keeper calls to void a moment (VAR cancel etc.)
 
-### Step 3: pnpm install — DONE
-- All 995 packages installed successfully
-- Peer dependency warnings are non-blocking (web wallet adapter deps, react-native, etc.)
-- Build scripts approved via `pnpm-workspace.yaml` `onlyBuiltDependencies`
+### Source
+- Program: `programs/moment-mint/programs/moment-mint/src/lib.rs`
+- IDL: `programs/moment-mint/target/idl/moment_mint.json`
+- Keypair: `programs/moment-mint/target/deploy/moment_mint-keypair.json`
+- Anchor.toml: cluster=devnet, wallet=../../devnet-keeper.json
 
-### Step 4: .env setup — DONE
-- Copied `.env.example` to `.env`
-- `DATABASE_URL` set to `file:/Users/blanco/live-moment-mint/momento.db`
-- All other devnet defaults are correct
-- `TXLINE_API_TOKEN` is empty (requires Step 7 to complete)
+### Keeper Integration
+- `apps/keeper/src/onchain.ts` — `onChainOpenWindow()` and `onChainVoidMoment()` helpers
+- `apps/keeper/src/mintWindow.ts` — calls on-chain after DB create when `MOMENTO_PROGRAM_ID` is set
 
-### Step 5: Prisma migration — DONE
-- `prisma generate` succeeded (Prisma Client v5.22.0)
-- `prisma db push` created `momento.db` with Fixture, Moment, Mint tables
-- DB path: `/Users/blanco/live-moment-mint/momento.db`
+## Phase 5: Web SSE Push — COMPLETE
 
-### Step 6: Guest JWT smoke test — DONE
-- `POST https://txline-dev.txodds.com/auth/guest/start` returns valid JWT
-- Sample token prefix: `eyJ0eXAiOiJKV1QiLCJhbGciOiJFUzI1NiJ9...`
-- The TxLINE devnet API is reachable and functional
+### Changes
+- `apps/keeper/src/mintWindow.ts` — `broadcastMomentOpened()` posts to `/api/feed` after each moment opens
+- `apps/web/src/app/api/moments/[id]/route.ts` — new per-moment GET API with `mints` included
+- `apps/web/src/app/moment/[id]/page.tsx` — moment detail page with on-chain explorer link
+- `apps/web/src/components/MomentCard.tsx` — added "view details →" link to detail page
+- `apps/web/.env.local` — `INTERNAL_SECRET=dev-secret-momento-2026`
 
-### Step 7: On-chain subscribe + API token — BLOCKED (needs SOL)
-- The subscribe script runs and reaches the blockchain call correctly
-- Error: `Transaction simulation failed: Attempt to debit an account but found no record of a prior credit.`
-- Confirmed: only SOL is needed — no TxL token payment required for free tier (World Cup)
-- **Once SOL is funded**: `KEEPER_WALLET_PATH=./devnet-keeper.json pnpm --filter keeper run subscribe`
+### SSE Flow
+1. TxLINE emits GOAL/RESULT event → keeper parses
+2. Keeper creates DB record + generates PNG + metadata JSON
+3. Keeper calls `onChainOpenWindow()` → Solana tx creates Moment PDA
+4. Keeper updates DB with `momentPda`
+5. Keeper broadcasts `{ type: 'MOMENT_OPENED', moment }` to `/api/feed` with `x-internal-secret`
+6. Web SSE clients receive push and render new MomentCard instantly
 
-## Files Added / Modified
-- `packages/txline/idl/txoracle-devnet.json` — TxLINE devnet IDL
-- `packages/txline/src/eventsource.d.ts` — Type stub for eventsource v2
-- `packages/txline/tsconfig.json` — Added eventsource type handling
-- `packages/txline/package.json` — @types/eventsource removed (was a stub)
-- `pnpm-workspace.yaml` — Added `onlyBuiltDependencies` to allow Prisma builds
-- `.npmrc` — Added `ignore-workspace-root-check=true` for Prisma auto-install
-- `.env` — Created from `.env.example` with correct devnet defaults
-- `scripts/smoke-test.ts` — Standalone guest JWT smoke test
-- `momento.db` — SQLite database (schema applied)
+## Env Vars Set
+- `MOMENTO_PROGRAM_ID=CL6e7FZkgQ6GLwYbmcsz4kwi2hZzzWoP7ckWgSbvF7ja`
+- `NEXT_PUBLIC_MOMENTO_PROGRAM_ID=CL6e7FZkgQ6GLwYbmcsz4kwi2hZzzWoP7ckWgSbvF7ja`
+- `INTERNAL_SECRET=dev-secret-momento-2026`
 
-## Next Actions (in order)
-1. Fund wallet with devnet SOL (manual step)
-2. Run: `KEEPER_WALLET_PATH=./devnet-keeper.json pnpm --filter keeper run subscribe`
-3. Copy printed `TXLINE_API_TOKEN` to `.env`
-4. Proceed with Phase 1: Keeper stream integration
+## How to Run Demo
 
-## API Token
-**Not yet obtained** — blocked on devnet SOL funding.
+### Prerequisites
+- Wallet `CSrPnu3y3vUeRPpJmsVukXyDZbHKLw7sFyweSubj97ve` needs SOL (currently ~0.07 after deploy)
+- Fund via `devnet-pow mine` or faucet.solana.com before calling keeper
+
+### Start web:
+```bash
+pnpm --filter web dev
+```
+
+### Start keeper (requires TxLINE stream):
+```bash
+KEEPER_WALLET_PATH=./devnet-keeper.json pnpm --filter keeper dev
+```
+
+### Run Anchor test (requires local validator):
+```bash
+cd programs/moment-mint
+solana-test-validator &
+anchor test --skip-local-validator
+```
+
+## Build Notes
+- `anchor build` IDL generation fails due to `proc_macro2::Span::source_file()` incompatibility with Solana platform-tools v1.53 rustc. The `.so` binary compiles cleanly.
+- IDL was hand-crafted at `programs/moment-mint/target/idl/moment_mint.json` with correct Anchor 0.30.x discriminators.
+- Deploy used `solana program deploy` directly (bypasses anchor's IDL upload step).
+
+## Next Steps (Phase 3.4)
+- mpl-core CPI in `mint_moment` to actually create an NFT asset on-chain
+- Requires ~0.01 SOL per mint for NFT account rent
+- Add `mpl-core` crate to Cargo.toml and implement `CreateV1` CPI
+
+## Phases Completed
+- [x] Phase 0: devnet wallet, TxLINE subscribe, Prisma DB
+- [x] Phase 1: Keeper TxLINE stream parser
+- [x] Phase 2: Image generation (PNG cards)
+- [x] Phase 3: Anchor program deployed + keeper wired
+- [x] Phase 4: DB integration + metadata JSON
+- [x] Phase 5: Web SSE push + moment detail page

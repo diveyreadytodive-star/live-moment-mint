@@ -1,13 +1,15 @@
 /**
  * Opens / voids minting windows.
  * Phase 4 keeper integration — DB + image gen.
- * Phase 3 TODO: call Anchor program on-chain.
+ * Phase 3: calls Anchor program on-chain + Phase 5: broadcasts SSE.
  */
 import type { PrismaClient } from '@prisma/client';
 import type { GoalEvent, ResultEvent, Fixture } from '@momento/shared';
 import { renderGoalPng, renderResultPng } from '@momento/image';
 import fs from 'fs';
 import path from 'path';
+import axios from 'axios';
+import { onChainOpenWindow, onChainVoidMoment } from './onchain';
 
 const GOAL_WINDOW_SECS   = 5 * 60;  // 5 min
 const RESULT_WINDOW_SECS = 10 * 60; // 10 min
@@ -19,6 +21,22 @@ const WEB_PUBLIC = path.resolve(__dirname, '../../../../apps/web/public');
 
 function ensureDir(dir: string) {
   fs.mkdirSync(dir, { recursive: true });
+}
+
+/** Phase 5: push moment to web SSE feed */
+async function broadcastMomentOpened(moment: any) {
+  const baseUrl = process.env.PUBLIC_BASE_URL ?? 'http://localhost:3000';
+  const secret  = process.env.INTERNAL_SECRET ?? 'dev-secret';
+  try {
+    await axios.post(
+      `${baseUrl}/api/feed`,
+      JSON.stringify({ type: 'MOMENT_OPENED', moment }),
+      { headers: { 'Content-Type': 'application/json', 'x-internal-secret': secret } },
+    );
+    console.log(`[mintWindow] SSE broadcast sent for moment id=${moment.id}`);
+  } catch {
+    // web may not be running locally; ignore
+  }
 }
 
 export async function openGoalWindow(
@@ -105,7 +123,29 @@ export async function openGoalWindow(
 
   console.log(`[mintWindow] GOAL opened id=${moment.id} ${fixture.p1Name} ${event.scoreP1}-${event.scoreP2} ${fixture.p2Name} ${event.minute}' closes=${new Date(closeTs * 1000).toISOString()}`);
 
-  // TODO Phase 3: await onChainOpenWindow(moment.id, openTs, closeTs, 'GOAL', metadataUrl)
+  // Phase 3: open on-chain window
+  if (process.env.MOMENTO_PROGRAM_ID) {
+    const keeperPath = process.env.KEEPER_WALLET_PATH ?? './devnet-keeper.json';
+    const pda = await onChainOpenWindow(
+      keeperPath,
+      moment.id,
+      event.fixtureId,
+      event.seq,
+      openTs,
+      closeTs,
+      'GOAL',
+      metadataUrl,
+    );
+    if (pda) {
+      await (db as any).moment.update({
+        where: { id: moment.id },
+        data: { momentPda: pda },
+      });
+    }
+  }
+
+  // Phase 5: broadcast to SSE clients
+  await broadcastMomentOpened(moment);
 
   return moment.id as number;
 }
@@ -185,6 +225,31 @@ export async function openResultWindow(
   });
 
   console.log(`[mintWindow] RESULT opened id=${moment.id} FT: ${fixture.p1Name} ${event.scoreP1}-${event.scoreP2} ${fixture.p2Name}`);
+
+  // Phase 3: open on-chain window
+  if (process.env.MOMENTO_PROGRAM_ID) {
+    const keeperPath = process.env.KEEPER_WALLET_PATH ?? './devnet-keeper.json';
+    const pda = await onChainOpenWindow(
+      keeperPath,
+      moment.id,
+      event.fixtureId,
+      event.seq,
+      openTs,
+      closeTs,
+      'RESULT',
+      metadataUrl,
+    );
+    if (pda) {
+      await (db as any).moment.update({
+        where: { id: moment.id },
+        data: { momentPda: pda },
+      });
+    }
+  }
+
+  // Phase 5: broadcast to SSE clients
+  await broadcastMomentOpened(moment);
+
   return moment.id as number;
 }
 
@@ -194,5 +259,10 @@ export async function voidMoment(db: PrismaClient, fixtureId: string, seq: numbe
     data:  { status: 'VOID' },
   });
   console.log(`[mintWindow] VOID fixtureId=${fixtureId} seq=${seq}`);
-  // TODO Phase 3: call on-chain void_moment
+
+  // Phase 3: void on-chain
+  if (process.env.MOMENTO_PROGRAM_ID) {
+    const keeperPath = process.env.KEEPER_WALLET_PATH ?? './devnet-keeper.json';
+    await onChainVoidMoment(keeperPath, fixtureId, seq);
+  }
 }

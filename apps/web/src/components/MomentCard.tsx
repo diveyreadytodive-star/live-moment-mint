@@ -87,6 +87,10 @@ export function MomentCard({ moment, onMinted }: Props) {
         {mintError && (
           <p style={{ color: '#f87171', fontSize: 9, marginTop: 6 }}>{mintError}</p>
         )}
+
+        <a href={'/moment/' + moment.id} style={{ color: '#60a5fa', fontSize: 9, marginTop: 8, display: 'block' }}>
+          view details →
+        </a>
       </div>
     </div>
   );
