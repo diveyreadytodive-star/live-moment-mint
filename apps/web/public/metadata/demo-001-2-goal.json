@@ -1,0 +1,31 @@
+{
+  "name": "Argentina Goal — 24'",
+  "description": "Argentina 1–0 Switzerland",
+  "image": "http://localhost:3000/moments/demo-001-2-goal.png",
+  "attributes": [
+    {
+      "trait_type": "fixture",
+      "value": "demo-001"
+    },
+    {
+      "trait_type": "kind",
+      "value": "GOAL"
+    },
+    {
+      "trait_type": "team",
+      "value": "Argentina"
+    },
+    {
+      "trait_type": "minute",
+      "value": 24
+    },
+    {
+      "trait_type": "score",
+      "value": "1-0"
+    },
+    {
+      "trait_type": "goal_type",
+      "value": "Head"
+    }
+  ]
+}

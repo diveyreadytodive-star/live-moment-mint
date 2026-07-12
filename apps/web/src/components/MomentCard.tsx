@@ -61,7 +61,7 @@ export function MomentCard({ moment, onMinted }: Props) {
   return (
     <div className="moment-card">
       {moment.imageUrl && (
-        <img src={moment.imageUrl} alt={moment.playerName ?? 'Moment'} loading="lazy" />
+        <img src={moment.imageUrl} alt={moment.teamScorerId ? `Team ${moment.teamScorerId} Goal` : 'Moment'} loading="lazy" />
       )}
       <div className="moment-card-body">
         <div>

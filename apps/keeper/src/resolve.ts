@@ -1,18 +1,20 @@
 /**
- * Resolves player IDs → names and participant IDs → team info
- * using TxLINE fixture/lineup data.
+ * Resolves fixture metadata from TxLINE fixture snapshot.
+ * Note: TxLINE soccer goal events do NOT include scorer IDs.
+ * We use team name/color from fixture data instead.
  */
 import type { TxLineClient } from '@momento/txline';
 import type { Fixture } from '@momento/shared';
 
-interface PlayerInfo {
-  name: string;
-  number?: string;
-  teamId?: string;
-}
+// Default team colors by participant index (overridden by future DB seeding)
+const DEFAULT_COLORS: Record<string, string> = {
+  '1489': '#75aadb', // Argentina — light blue
+  '3099': '#d52b1e', // Switzerland — red
+  '1999': '#002395', // France — blue
+  '3021': '#c60b1e', // Spain — red
+  '1888': '#012169', // England — navy
+};
 
-// Simple in-memory cache (fixture → players map)
-const playerCache = new Map<string, Map<string, PlayerInfo>>();
 const fixtureCache = new Map<string, Fixture>();
 
 export async function resolveFixture(
@@ -21,53 +23,39 @@ export async function resolveFixture(
 ): Promise<Fixture> {
   if (fixtureCache.has(fixtureId)) return fixtureCache.get(fixtureId)!;
 
-  const data = await client.getFixture(fixtureId);
+  // Fetch all fixtures and find the matching one
+  const fixtures = await client.getFixturesSnapshot();
+  const raw = fixtures.find((f: any) => String(f.FixtureId) === fixtureId);
+
+  if (!raw) {
+    throw new Error(`Fixture ${fixtureId} not found in snapshot`);
+  }
+
+  const p1Id = String(raw.Participant1Id);
+  const p2Id = String(raw.Participant2Id);
+
   const fixture: Fixture = {
-    id: String(data.id ?? fixtureId),
-    p1Id: String(data.participant1Id ?? data.p1Id ?? ''),
-    p2Id: String(data.participant2Id ?? data.p2Id ?? ''),
-    p1Name: data.participant1Name ?? data.participant1?.name ?? 'Team 1',
-    p2Name: data.participant2Name ?? data.participant2?.name ?? 'Team 2',
-    p1IsHome: data.participant1IsHome ?? true,
-    p1Color: data.participant1Color ?? '#1a56db',
-    p2Color: data.participant2Color ?? '#e02424',
-    kickoffTs: data.startTime ?? data.kickoffTs ?? 0,
+    id: fixtureId,
+    p1Id,
+    p2Id,
+    p1Name: raw.Participant1 ?? 'Team 1',
+    p2Name: raw.Participant2 ?? 'Team 2',
+    p1IsHome: raw.Participant1IsHome ?? true,
+    p1Color: DEFAULT_COLORS[p1Id] ?? '#1a56db',
+    p2Color: DEFAULT_COLORS[p2Id] ?? '#e02424',
+    kickoffTs: Math.floor((raw.StartTime ?? 0) / 1000),
   };
+
   fixtureCache.set(fixtureId, fixture);
   return fixture;
 }
 
-export async function resolvePlayer(
-  client: TxLineClient,
-  fixtureId: string,
-  playerId: string,
-): Promise<PlayerInfo> {
-  // Populate cache if needed
-  if (!playerCache.has(fixtureId)) {
-    await populatePlayerCache(client, fixtureId);
-  }
-  return playerCache.get(fixtureId)?.get(playerId) ?? { name: 'Unknown' };
+/** Clear cache (used in tests or after fixture updates) */
+export function clearCache() {
+  fixtureCache.clear();
 }
 
-async function populatePlayerCache(client: TxLineClient, fixtureId: string) {
-  try {
-    const lineup = await client.getLineup(fixtureId);
-    const map = new Map<string, PlayerInfo>();
-
-    for (const team of lineup?.lineups ?? []) {
-      for (const entry of team?.lineups ?? []) {
-        const player = entry?.player;
-        if (!player?.id) continue;
-        map.set(String(player.id), {
-          name: player.preferredName ?? player.name ?? 'Unknown',
-          number: String(player.shirtNumber ?? entry.shirtNumber ?? '?'),
-          teamId: String(team.participantId ?? ''),
-        });
-      }
-    }
-    playerCache.set(fixtureId, map);
-  } catch (err) {
-    console.error('[resolve] Failed to load lineup for', fixtureId, err);
-    playerCache.set(fixtureId, new Map());
-  }
+/** Manually seed the cache for demo/replay fixtures (bypasses API call) */
+export function seedFixture(fixture: Fixture) {
+  fixtureCache.set(fixture.id, fixture);
 }

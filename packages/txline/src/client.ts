@@ -1,3 +1,7 @@
+/**
+ * TxLINE REST API client.
+ * Endpoint paths verified against real devnet API (July 2026).
+ */
 import axios, { AxiosInstance } from 'axios';
 
 export class TxLineClient {
@@ -22,34 +26,28 @@ export class TxLineClient {
     this.http.defaults.headers.common['Authorization'] = `Bearer ${jwt}`;
   }
 
-  /** Fetch fixture list (optionally filter by sport) */
-  async getFixtures(params?: { sportId?: string; limit?: number }) {
-    const res = await this.http.get('/fixtures', { params });
-    return res.data;
+  /** All available fixtures (returns PascalCase TxLineFixture[]) */
+  async getFixturesSnapshot(): Promise<any[]> {
+    const res = await this.http.get('/fixtures/snapshot');
+    return Array.isArray(res.data) ? res.data : [];
   }
 
-  /** Fetch single fixture */
-  async getFixture(fixtureId: string) {
-    const res = await this.http.get(`/fixtures/${fixtureId}`);
-    return res.data;
-  }
-
-  /** Fetch lineup for a fixture */
-  async getLineup(fixtureId: string) {
-    const res = await this.http.get(`/fixtures/${fixtureId}/lineups`);
-    return res.data;
-  }
-
-  /** Scores snapshot for a single fixture */
-  async getScoresSnapshot(fixtureId: string) {
+  /** Scores snapshot for one fixture */
+  async getScoresSnapshot(fixtureId: string): Promise<any> {
     const res = await this.http.get(`/scores/snapshot/${fixtureId}`);
-    return res.data;
+    return Array.isArray(res.data) ? res.data[0] : res.data;
   }
 
-  /** Historical scores for a fixture (last 2 weeks) */
-  async getScoresHistorical(fixtureId: string) {
-    const res = await this.http.get(`/scores/historical/${fixtureId}`);
-    return res.data;
+  /**
+   * Historical SSE-format events for a fixture.
+   * Returns raw text (SSE lines: "data: {...}\n\n").
+   * Use to replay/seed past events.
+   */
+  async getScoresUpdates(fixtureId: string): Promise<string> {
+    const res = await this.http.get(`/scores/updates/${fixtureId}`, {
+      responseType: 'text',
+    });
+    return res.data as string;
   }
 
   getHeaders() {

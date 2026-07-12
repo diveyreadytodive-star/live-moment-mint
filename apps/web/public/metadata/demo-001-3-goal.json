@@ -1,0 +1,31 @@
+{
+  "name": "Switzerland Goal — 68'",
+  "description": "Argentina 1–1 Switzerland",
+  "image": "http://localhost:3000/moments/demo-001-3-goal.png",
+  "attributes": [
+    {
+      "trait_type": "fixture",
+      "value": "demo-001"
+    },
+    {
+      "trait_type": "kind",
+      "value": "GOAL"
+    },
+    {
+      "trait_type": "team",
+      "value": "Switzerland"
+    },
+    {
+      "trait_type": "minute",
+      "value": 68
+    },
+    {
+      "trait_type": "score",
+      "value": "1-1"
+    },
+    {
+      "trait_type": "goal_type",
+      "value": "Penalty"
+    }
+  ]
+}

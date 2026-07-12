@@ -1,10 +1,8 @@
 export interface GoalImageParams {
-  // Teams
   p1Name: string;
   p2Name: string;
-  p1Color: string;   // hex e.g. "#1a56db"
+  p1Color: string;
   p2Color: string;
-  // Event
   scorerName: string;
   scorerNumber?: string;
   minute: number;
@@ -25,109 +23,89 @@ export interface ResultImageParams {
   isDraw: boolean;
   winnerName?: string;
   winnerColor?: string;
-  // a random seed to pick a starter — seeded by seq for determinism
   seed?: number;
 }
 
-// Press Start 2P font as base64 data URI (subset — digits + uppercase + symbols)
-// For brevity, this references Google Fonts CDN; in production embed the full font.
-const FONT_FAMILY = 'Press Start 2P';
-const FONT_IMPORT = `@import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');`;
+// Monospace stack that works in resvg (no external fonts needed)
+const MONO = 'Courier New, Courier, monospace';
 
 function badge(text: string, color: string, x: number, y: number): string {
+  const w = text.length * 9 + 16;
   return `
-    <rect x="${x}" y="${y}" width="${text.length * 12 + 16}" height="28" rx="4" fill="${color}"/>
-    <text x="${x + 8}" y="${y + 18}" font-family="${FONT_FAMILY}" font-size="11" fill="#fff">${text}</text>
+    <rect x="${x}" y="${y}" width="${w}" height="24" rx="3" fill="${color}"/>
+    <text x="${x + 8}" y="${y + 16}" font-family="${MONO}" font-size="10" fill="#fff" font-weight="bold">${text}</text>
   `;
 }
 
-function blockAvatar(color: string, number: string, cx: number, cy: number): string {
+function blockAvatar(color: string, label: string, cx: number, cy: number): string {
+  const dark = darken(color);
   return `
-    <!-- body block -->
-    <rect x="${cx - 30}" y="${cy - 10}" width="60" height="70" rx="4" fill="${color}"/>
-    <!-- head block -->
-    <rect x="${cx - 18}" y="${cy - 46}" width="36" height="36" rx="4" fill="${darken(color)}"/>
-    <!-- shirt number -->
-    <text x="${cx}" y="${cy + 40}" font-family="${FONT_FAMILY}" font-size="18" fill="#fff" text-anchor="middle">${number}</text>
+    <rect x="${cx - 30}" y="${cy - 10}" width="60" height="65" rx="4" fill="${color}"/>
+    <rect x="${cx - 18}" y="${cy - 46}" width="36" height="36" rx="4" fill="${dark}"/>
+    <text x="${cx}" y="${cy + 35}" font-family="${MONO}" font-size="16" fill="#fff" text-anchor="middle" font-weight="bold">${label}</text>
   `;
 }
 
-/** Darken a hex color by ~20% for avatar head contrast */
 function darken(hex: string): string {
   const n = parseInt(hex.replace('#', ''), 16);
   const r = Math.max(0, ((n >> 16) & 0xff) - 40);
-  const g = Math.max(0, ((n >> 8) & 0xff) - 40);
-  const b = Math.max(0, (n & 0xff) - 40);
-  return `#${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}`;
+  const g = Math.max(0, ((n >>  8) & 0xff) - 40);
+  const b = Math.max(0, ( n        & 0xff) - 40);
+  return `#${r.toString(16).padStart(2,'0')}${g.toString(16).padStart(2,'0')}${b.toString(16).padStart(2,'0')}`;
+}
+
+function escXml(s: string): string {
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
 
 export function buildGoalSvg(p: GoalImageParams): string {
-  const badges: string[] = [];
-  if (p.isPenalty) badges.push(badge('PEN', '#e3a008', 20, 20));
-  if (p.isOwnGoal) badges.push(badge('OG', '#e02424', 20, 20));
-  if (p.isVoid) badges.push(badge('VOID', '#6b7280', 20, 20));
+  const scoringColor = p.isOwnGoal
+    ? (p.scoreP1 > p.scoreP2 ? p.p2Color : p.p1Color)
+    : (p.scoreP1 > p.scoreP2 ? p.p1Color : p.p2Color);
+  const label = p.scorerNumber ?? '?';
 
-  // Shift second badge if both exist
-  if (badges.length === 2) {
-    badges[1] = badge(p.isOwnGoal ? 'OG' : 'PEN', p.isOwnGoal ? '#e02424' : '#e3a008', 120, 20);
-  }
+  const badgeList: string[] = [];
+  if (p.isPenalty) badgeList.push(badge('PEN', '#e3a008', 16, 16));
+  if (p.isOwnGoal) badgeList.push(badge('OG',  '#e02424', p.isPenalty ? 80 : 16, 16));
+  if (p.isVoid)    badgeList.push(badge('VOID','#6b7280', 16, 16));
 
-  const scorerColor = p.isOwnGoal ? (p.scoreP1 > p.scoreP2 ? p.p2Color : p.p1Color) : (p.scoreP1 > p.scoreP2 ? p.p1Color : p.p2Color);
-  const numberStr = p.scorerNumber ?? '?';
-
-  return `<svg xmlns="http://www.w3.org/2000/svg" width="600" height="400" viewBox="0 0 600 400">
+  return `<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="600" height="400" viewBox="0 0 600 400">
   <defs>
-    <style>${FONT_IMPORT}</style>
     <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
       <stop offset="0%" stop-color="#111827"/>
       <stop offset="100%" stop-color="#1f2937"/>
     </linearGradient>
   </defs>
 
-  <!-- Background -->
   <rect width="600" height="400" fill="url(#bg)"/>
+  <rect width="600" height="4" fill="${scoringColor}"/>
 
-  <!-- Accent stripe top -->
-  <rect width="600" height="4" fill="${scorerColor}"/>
+  <text x="300" y="52" font-family="${MONO}" font-size="26" fill="${scoringColor}" text-anchor="middle" font-weight="bold">GOAL</text>
+  <text x="300" y="78" font-family="${MONO}" font-size="12" fill="#9ca3af" text-anchor="middle">${escXml(String(p.minute))}&apos;</text>
 
-  <!-- "GOAL" header -->
-  <text x="300" y="55" font-family="${FONT_FAMILY}" font-size="28" fill="${scorerColor}" text-anchor="middle">GOAL</text>
+  ${blockAvatar(scoringColor, label, 300, 195)}
 
-  <!-- Minute -->
-  <text x="300" y="82" font-family="${FONT_FAMILY}" font-size="13" fill="#9ca3af" text-anchor="middle">${p.minute}'</text>
+  <text x="300" y="286" font-family="${MONO}" font-size="13" fill="#f9fafb" text-anchor="middle" font-weight="bold">${escXml(p.scorerName)}</text>
 
-  <!-- Block avatar -->
-  ${blockAvatar(scorerColor, numberStr, 300, 195)}
+  <rect x="0" y="325" width="600" height="75" fill="${p.p1Color}22"/>
+  <text x="140" y="368" font-family="${MONO}" font-size="11" fill="${p.p1Color}" text-anchor="middle" font-weight="bold">${escXml(p.p1Name)}</text>
+  <text x="460" y="368" font-family="${MONO}" font-size="11" fill="${p.p2Color}" text-anchor="middle" font-weight="bold">${escXml(p.p2Name)}</text>
+  <text x="260" y="374" font-family="${MONO}" font-size="22" fill="#f9fafb" text-anchor="middle" font-weight="bold">${p.scoreP1}</text>
+  <text x="300" y="374" font-family="${MONO}" font-size="18" fill="#6b7280" text-anchor="middle">-</text>
+  <text x="340" y="374" font-family="${MONO}" font-size="22" fill="#f9fafb" text-anchor="middle" font-weight="bold">${p.scoreP2}</text>
 
-  <!-- Scorer name -->
-  <text x="300" y="290" font-family="${FONT_FAMILY}" font-size="14" fill="#f9fafb" text-anchor="middle">${p.scorerName}</text>
-
-  <!-- Scoreboard bar -->
-  <rect x="0" y="330" width="600" height="70" fill="${p.p1Color}22"/>
-  <rect x="0" y="330" width="1" height="70" fill="${p.p1Color}"/>
-  <rect x="599" y="330" width="1" height="70" fill="${p.p2Color}"/>
-
-  <!-- Team names -->
-  <text x="140" y="372" font-family="${FONT_FAMILY}" font-size="11" fill="${p.p1Color}" text-anchor="middle">${p.p1Name}</text>
-  <text x="460" y="372" font-family="${FONT_FAMILY}" font-size="11" fill="${p.p2Color}" text-anchor="middle">${p.p2Name}</text>
-
-  <!-- Score -->
-  <text x="260" y="377" font-family="${FONT_FAMILY}" font-size="24" fill="#f9fafb" text-anchor="middle">${p.scoreP1}</text>
-  <text x="300" y="377" font-family="${FONT_FAMILY}" font-size="18" fill="#6b7280" text-anchor="middle">-</text>
-  <text x="340" y="377" font-family="${FONT_FAMILY}" font-size="24" fill="#f9fafb" text-anchor="middle">${p.scoreP2}</text>
-
-  <!-- Badges -->
-  ${badges.join('')}
+  ${badgeList.join('')}
 </svg>`;
 }
 
 export function buildResultSvg(p: ResultImageParams): string {
-  const headerText = p.isDraw ? 'DRAW' : 'WINNER';
+  const headerText  = p.isDraw ? 'DRAW' : 'WINNER';
   const headerColor = p.isDraw ? '#f59e0b' : (p.winnerColor ?? '#10b981');
 
-  return `<svg xmlns="http://www.w3.org/2000/svg" width="600" height="400" viewBox="0 0 600 400">
+  return `<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="600" height="400" viewBox="0 0 600 400">
   <defs>
-    <style>${FONT_IMPORT}</style>
     <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
       <stop offset="0%" stop-color="#111827"/>
       <stop offset="100%" stop-color="#1f2937"/>
@@ -137,28 +115,22 @@ export function buildResultSvg(p: ResultImageParams): string {
   <rect width="600" height="400" fill="url(#bg)"/>
   <rect width="600" height="4" fill="${headerColor}"/>
 
-  <!-- FULL TIME -->
-  <text x="300" y="50" font-family="${FONT_FAMILY}" font-size="12" fill="#9ca3af" text-anchor="middle">FULL TIME</text>
-
-  <!-- Header -->
-  <text x="300" y="82" font-family="${FONT_FAMILY}" font-size="26" fill="${headerColor}" text-anchor="middle">${headerText}</text>
+  <text x="300" y="46" font-family="${MONO}" font-size="11" fill="#9ca3af" text-anchor="middle">FULL TIME</text>
+  <text x="300" y="78" font-family="${MONO}" font-size="24" fill="${headerColor}" text-anchor="middle" font-weight="bold">${headerText}</text>
 
   ${p.isDraw
-    ? `<!-- Draw: both team blocks -->
-    ${blockAvatar(p.p1Color, '?', 190, 195)}
-    ${blockAvatar(p.p2Color, '?', 410, 195)}
-    <text x="300" y="220" font-family="${FONT_FAMILY}" font-size="22" fill="#f59e0b" text-anchor="middle">VS</text>`
-    : `<!-- Winner block -->
-    ${blockAvatar(p.winnerColor ?? headerColor, '★', 300, 195)}
-    <text x="300" y="290" font-family="${FONT_FAMILY}" font-size="14" fill="#f9fafb" text-anchor="middle">${p.winnerName ?? ''}</text>`
+    ? `${blockAvatar(p.p1Color, '1', 185, 195)}
+    <text x="300" y="220" font-family="${MONO}" font-size="20" fill="#f59e0b" text-anchor="middle" font-weight="bold">VS</text>
+    ${blockAvatar(p.p2Color, '2', 415, 195)}`
+    : `${blockAvatar(p.winnerColor ?? headerColor, '\u2605', 300, 195)}
+    <text x="300" y="286" font-family="${MONO}" font-size="13" fill="#f9fafb" text-anchor="middle" font-weight="bold">${escXml(p.winnerName ?? '')}</text>`
   }
 
-  <!-- Scoreboard bar -->
-  <rect x="0" y="330" width="600" height="70" fill="${p.p1Color}22"/>
-  <text x="140" y="372" font-family="${FONT_FAMILY}" font-size="11" fill="${p.p1Color}" text-anchor="middle">${p.p1Name}</text>
-  <text x="460" y="372" font-family="${FONT_FAMILY}" font-size="11" fill="${p.p2Color}" text-anchor="middle">${p.p2Name}</text>
-  <text x="260" y="377" font-family="${FONT_FAMILY}" font-size="24" fill="#f9fafb" text-anchor="middle">${p.scoreP1}</text>
-  <text x="300" y="377" font-family="${FONT_FAMILY}" font-size="18" fill="#6b7280" text-anchor="middle">-</text>
-  <text x="340" y="377" font-family="${FONT_FAMILY}" font-size="24" fill="#f9fafb" text-anchor="middle">${p.scoreP2}</text>
+  <rect x="0" y="325" width="600" height="75" fill="${p.p1Color}22"/>
+  <text x="140" y="368" font-family="${MONO}" font-size="11" fill="${p.p1Color}" text-anchor="middle" font-weight="bold">${escXml(p.p1Name)}</text>
+  <text x="460" y="368" font-family="${MONO}" font-size="11" fill="${p.p2Color}" text-anchor="middle" font-weight="bold">${escXml(p.p2Name)}</text>
+  <text x="260" y="374" font-family="${MONO}" font-size="22" fill="#f9fafb" text-anchor="middle" font-weight="bold">${p.scoreP1}</text>
+  <text x="300" y="374" font-family="${MONO}" font-size="18" fill="#6b7280" text-anchor="middle">-</text>
+  <text x="340" y="374" font-family="${MONO}" font-size="22" fill="#f9fafb" text-anchor="middle" font-weight="bold">${p.scoreP2}</text>
 </svg>`;
 }

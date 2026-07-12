@@ -1,0 +1,27 @@
+{
+  "name": "Argentina WIN",
+  "description": "FT: Argentina 2–1 Switzerland",
+  "image": "http://localhost:3000/moments/demo-001-5-result.png",
+  "attributes": [
+    {
+      "trait_type": "fixture",
+      "value": "demo-001"
+    },
+    {
+      "trait_type": "kind",
+      "value": "RESULT"
+    },
+    {
+      "trait_type": "score",
+      "value": "2-1"
+    },
+    {
+      "trait_type": "draw",
+      "value": false
+    },
+    {
+      "trait_type": "winner",
+      "value": "Argentina"
+    }
+  ]
+}

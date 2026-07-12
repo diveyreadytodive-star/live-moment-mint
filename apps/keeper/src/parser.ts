@@ -1,69 +1,74 @@
 /**
  * Parses raw TxLINE SSE events into normalized MomentoEvents.
- * Implements detection rules from Section 3.1 (goal) and 3.2 (result).
+ *
+ * Verified against real devnet data (FixtureId 18222446, July 2026):
+ *   Goal:   Action="goal", Confirmed=true, Participant=1|2
+ *   Result: Action="game_finalised", StatusId=100
+ *   Cancel: Action="action_discarded" (VAR cancellation)
  */
 import type { TxLineSseEvent } from '@momento/shared';
 import type { GoalEvent, ResultEvent, MomentoEvent } from '@momento/shared';
 
-const SOCCER_SPORT_ID = 'soccer'; // verify against live data
+function getGoals(event: TxLineSseEvent, team: 'Participant1' | 'Participant2'): number {
+  return event.Score?.[team]?.Total?.Goals ?? 0;
+}
+
+function clockToMinute(seconds: number): number {
+  return Math.ceil(seconds / 60);
+}
 
 export function parseEvent(raw: TxLineSseEvent): MomentoEvent | null {
-  // ── Goal detection (3.1) ────────────────────────────────────────────
-  if (
-    (raw.sportId === SOCCER_SPORT_ID || !raw.sportId) &&
-    raw.dataSoccer?.Goal === true &&
-    raw.confirmed === true &&
-    raw.dataSoccer.Participant !== undefined
-  ) {
-    const s = raw.dataSoccer;
-    const scoreSoccer = raw.scoreSoccer;
-    const scoreP1 = scoreSoccer?.Participant1?.Total?.Goals ?? 0;
-    const scoreP2 = scoreSoccer?.Participant2?.Total?.Goals ?? 0;
+  const action = raw.Action ?? '';
+
+  // ── Goal (3.1) ──────────────────────────────────────────────────────────
+  // Only process confirmed goals to avoid duplicates (unconfirmed fires first, then confirmed)
+  if (action === 'goal' && raw.Confirmed === true && raw.Participant !== undefined) {
+    const scoreP1 = getGoals(raw, 'Participant1');
+    const scoreP2 = getGoals(raw, 'Participant2');
+    const goalType = raw.Data?.GoalType ?? '';
+    const isPenalty = goalType === 'Penalty';
+    const isOwnGoal = goalType === 'OwnGoal';
+    const seconds = raw.Clock?.Seconds ?? 0;
 
     return {
       type: 'GOAL',
-      fixtureId: raw.fixtureId,
-      seq: raw.seq,
-      ts: raw.ts,
-      participantScoredId: String(s.Participant),
-      playerId: s.PlayerId ?? '',
-      playerName: '', // resolved later by resolve.ts
-      minute: s.Minutes ?? 0,
+      fixtureId: raw.FixtureId,
+      seq: raw.Seq,
+      ts: raw.Ts,
+      scoringTeam: String(raw.Participant) as '1' | '2',
+      minute: clockToMinute(seconds),
       scoreP1,
       scoreP2,
-      isPenalty: s.Penalty ?? false,
-      isOwnGoal: s.OwnGoal ?? false,
+      goalType,
+      isPenalty,
+      isOwnGoal,
     } satisfies GoalEvent;
   }
 
-  // ── Result detection (3.2) ──────────────────────────────────────────
-  if (
-    raw.action === 'game_finalised' ||
-    (raw.statusId === 100 && raw.period === 100)
-  ) {
-    const scoreP1 = raw.scoreSoccer?.Participant1?.Total?.Goals ?? 0;
-    const scoreP2 = raw.scoreSoccer?.Participant2?.Total?.Goals ?? 0;
+  // ── Result / game_finalised (3.2) ────────────────────────────────────────
+  if (action === 'game_finalised' || raw.StatusId === 100) {
+    const scoreP1 = getGoals(raw, 'Participant1');
+    const scoreP2 = getGoals(raw, 'Participant2');
 
-    let winnerParticipantId: string | undefined;
-    if (scoreP1 > scoreP2) winnerParticipantId = '1';
-    else if (scoreP2 > scoreP1) winnerParticipantId = '2';
-    // undefined = draw
+    let winnerTeam: '1' | '2' | undefined;
+    if (scoreP1 > scoreP2) winnerTeam = '1';
+    else if (scoreP2 > scoreP1) winnerTeam = '2';
 
     return {
       type: 'RESULT',
-      fixtureId: raw.fixtureId,
-      seq: raw.seq,
-      ts: raw.ts,
+      fixtureId: raw.FixtureId,
+      seq: raw.Seq,
+      ts: raw.Ts,
       scoreP1,
       scoreP2,
-      winnerParticipantId,
+      winnerTeam,
     } satisfies ResultEvent;
   }
 
   return null;
 }
 
-/** Detect VAR cancellation (goal count decreased or VAR=true after a goal) */
+/** VAR cancellation — called before parseEvent to void existing moments */
 export function isVarCancel(raw: TxLineSseEvent): boolean {
-  return raw.dataSoccer?.VAR === true;
+  return raw.Action === 'action_discarded';
 }

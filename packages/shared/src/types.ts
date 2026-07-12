@@ -9,21 +9,19 @@ export interface Moment {
   id: number;
   fixtureId: string;
   kind: MomentKind;
-  seq: number;           // monotonic sequence from TxLINE SSE
-  tsEvent: number;       // unix timestamp of the real-world event
-  teamScorerId?: string; // participant id of scoring team
-  playerId?: string;
-  playerName?: string;
+  seq: number;
+  tsEvent: number;
+  teamScorerId?: string;   // "1" or "2"
+  goalType?: string;       // "Head" | "Foot" | "Penalty" | "OwnGoal" | etc.
   minute?: number;
   scoreP1: number;
   scoreP2: number;
   imageUrl?: string;
   metadataUrl?: string;
-  momentPda?: string;    // on-chain PDA address
+  momentPda?: string;
   status: MomentStatus;
   openTs: number;
   closeTs: number;
-  proofRef?: string;
 }
 
 // ── DB Mint record ──────────────────────────────────────────────────────
@@ -31,7 +29,7 @@ export interface Mint {
   id: number;
   momentId: number;
   minterPubkey: string;
-  assetId: string;       // mpl-core asset address
+  assetId: string;
   txSig: string;
   createdAt: number;
 }
@@ -44,7 +42,7 @@ export interface Fixture {
   p1Name: string;
   p2Name: string;
   p1IsHome: boolean;
-  p1Color: string;       // hex e.g. "#1a56db"
+  p1Color: string;
   p2Color: string;
   kickoffTs: number;
 }
@@ -55,12 +53,11 @@ export interface GoalEvent {
   fixtureId: string;
   seq: number;
   ts: number;
-  participantScoredId: string;  // "1" | "2"
-  playerId: string;
-  playerName: string;
+  scoringTeam: '1' | '2';
   minute: number;
   scoreP1: number;
   scoreP2: number;
+  goalType: string;        // e.g. "Head", "Foot", "Penalty", "OwnGoal"
   isPenalty: boolean;
   isOwnGoal: boolean;
 }
@@ -73,12 +70,12 @@ export interface ResultEvent {
   ts: number;
   scoreP1: number;
   scoreP2: number;
-  winnerParticipantId?: string; // undefined = draw
+  winnerTeam?: '1' | '2';  // undefined = draw
 }
 
 export type MomentoEvent = GoalEvent | ResultEvent;
 
-// ── Real-time feed message (web SSE) ────────────────────────────────────
+// ── Real-time feed messages (web SSE) ────────────────────────────────────
 export interface MomentOpenedMessage {
   type: 'MOMENT_OPENED';
   moment: Moment;

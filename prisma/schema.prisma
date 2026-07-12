@@ -1,5 +1,3 @@
-// Momento DB schema
-
 generator client {
   provider = "prisma-client-js"
 }
@@ -24,38 +22,36 @@ model Fixture {
 }
 
 model Moment {
-  id          Int      @id @default(autoincrement())
-  fixtureId   String
-  kind        String   // GOAL | RESULT
-  seq         Int
-  tsEvent     Int
-  teamScorerId String?
-  playerId    String?
-  playerName  String?
-  minute      Int?
-  scoreP1     Int      @default(0)
-  scoreP2     Int      @default(0)
-  imageUrl    String?
-  metadataUrl String?
-  momentPda   String?
-  status      String   @default("OPEN") // OPEN | CLOSED | VOID
-  openTs      Int
-  closeTs     Int
-  proofRef    String?
+  id           Int      @id @default(autoincrement())
+  fixtureId    String
+  kind         String   // GOAL | RESULT
+  seq          Int
+  tsEvent      Int
+  teamScorerId String?  // "1" | "2"
+  goalType     String?  // "Head" | "Foot" | "Penalty" | "OwnGoal"
+  minute       Int?
+  scoreP1      Int      @default(0)
+  scoreP2      Int      @default(0)
+  imageUrl     String?
+  metadataUrl  String?
+  momentPda    String?
+  status       String   @default("OPEN") // OPEN | CLOSED | VOID
+  openTs       Int
+  closeTs      Int
 
-  fixture     Fixture? @relation(fields: [fixtureId], references: [id])
-  mints       Mint[]
+  fixture      Fixture? @relation(fields: [fixtureId], references: [id])
+  mints        Mint[]
 
   @@unique([fixtureId, seq, kind])
 }
 
 model Mint {
-  id          Int      @id @default(autoincrement())
-  momentId    Int
+  id           Int    @id @default(autoincrement())
+  momentId     Int
   minterPubkey String
-  assetId     String
-  txSig       String
-  createdAt   Int
+  assetId      String
+  txSig        String
+  createdAt    Int
 
-  moment      Moment   @relation(fields: [momentId], references: [id])
+  moment       Moment @relation(fields: [momentId], references: [id])
 }
