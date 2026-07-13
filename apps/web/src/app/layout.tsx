@@ -1,10 +1,11 @@
 import type { Metadata } from 'next';
 import './globals.css';
 import { WalletProvider } from '@/components/WalletProvider';
+import { HeaderWallet } from '@/components/HeaderWallet';
 
 export const metadata: Metadata = {
-  title: 'Momento — Live Match NFTs',
-  description: 'Mint time-locked NFTs from real World Cup moments, powered by TxLINE',
+  title: 'MOMENTO',
+  description: 'Mint time-locked NFTs from live World Cup moments',
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
@@ -13,11 +14,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body>
         <WalletProvider>
           <header className="header">
-            <span className="logo">⚽ MOMENTO</span>
-            <nav>
-              <a href="/">Feed</a>
-              <a href="/collection">My Collection</a>
-            </nav>
+            <span className="logo">MOMENTO</span>
+            <HeaderWallet />
           </header>
           <main>{children}</main>
         </WalletProvider>

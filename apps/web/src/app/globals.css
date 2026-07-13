@@ -1,144 +1,150 @@
-/* Momento — dark pixel theme */
+/* Momento — monochrome */
 * { box-sizing: border-box; margin: 0; padding: 0; }
 
 body {
-  background: #111827;
-  color: #f9fafb;
-  font-family: 'Press Start 2P', 'Courier New', monospace;
+  background: #000;
+  color: #fff;
+  font-family: 'Courier New', Courier, monospace;
   font-size: 12px;
   line-height: 1.6;
 }
 
-@import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
-
+/* ── Layout ── */
 .header {
   display: flex;
   align-items: center;
   justify-content: space-between;
   padding: 16px 24px;
-  border-bottom: 2px solid #1f2937;
-  background: #0d1117;
+  border-bottom: 1px solid #222;
 }
 
 .logo {
-  font-size: 16px;
-  color: #10b981;
-  letter-spacing: 2px;
+  font-size: 14px;
+  color: #fff;
+  letter-spacing: 3px;
+  font-weight: bold;
 }
-
-nav a {
-  color: #9ca3af;
-  text-decoration: none;
-  margin-left: 24px;
-  font-size: 10px;
-}
-nav a:hover { color: #f9fafb; }
 
 main {
   max-width: 1100px;
   margin: 0 auto;
-  padding: 24px 16px;
+  padding: 32px 20px;
 }
 
-/* Moment card */
-.moment-card {
-  border: 1px solid #1f2937;
-  border-radius: 8px;
-  overflow: hidden;
-  background: #1f2937;
-  transition: border-color 0.2s;
+/* ── Fixture sections ── */
+.fixture-section {
+  margin-bottom: 48px;
 }
-.moment-card:hover { border-color: #374151; }
-.moment-card img { width: 100%; display: block; }
+
+.fixture-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  padding-bottom: 10px;
+  border-bottom: 1px solid #222;
+  margin-bottom: 20px;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.fixture-teams {
+  font-size: 15px;
+  letter-spacing: 1px;
+  color: #fff;
+}
+
+.fixture-meta {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: #555;
+  font-size: 10px;
+}
+
+.fixture-empty {
+  color: #444;
+  font-size: 10px;
+  padding: 24px 0;
+}
+
+/* ── Grid ── */
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 16px;
+}
+
+/* ── Moment card ── */
+.moment-card {
+  border: 1px solid #222;
+  background: #0a0a0a;
+}
+
+.moment-card img {
+  width: 100%;
+  display: block;
+  filter: grayscale(100%);
+}
 
 .moment-card-body {
   padding: 12px;
 }
 
 .countdown {
-  color: #f59e0b;
-  font-size: 14px;
-  margin-bottom: 8px;
+  color: #fff;
+  font-size: 13px;
+  margin: 6px 0 10px;
+  letter-spacing: 1px;
 }
 
 .mint-btn {
   width: 100%;
   padding: 10px;
-  background: #10b981;
-  color: #fff;
+  background: #fff;
+  color: #000;
   border: none;
   cursor: pointer;
   font-family: inherit;
   font-size: 11px;
-  border-radius: 4px;
-  letter-spacing: 1px;
+  letter-spacing: 2px;
+  font-weight: bold;
 }
-.mint-btn:disabled { background: #374151; cursor: not-allowed; }
-.mint-btn:hover:not(:disabled) { background: #059669; }
-
-.grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-  gap: 20px;
+.mint-btn:disabled {
+  background: #222;
+  color: #555;
+  cursor: not-allowed;
+}
+.mint-btn:hover:not(:disabled) {
+  background: #ddd;
 }
 
+/* ── Badges ── */
 .badge {
   display: inline-block;
-  padding: 3px 8px;
-  border-radius: 4px;
+  padding: 2px 7px;
   font-size: 9px;
-  margin-right: 4px;
-  margin-bottom: 6px;
-}
-.badge-goal   { background: #065f46; color: #6ee7b7; }
-.badge-result { background: #1e3a5f; color: #93c5fd; }
-.badge-void   { background: #374151; color: #9ca3af; }
-.badge-closed { background: #1f2937; color: #6b7280; }
-
-.status-open { color: #10b981; }
-.status-closed { color: #6b7280; }
-
-/* Fixture sections */
-.fixture-section {
-  margin-bottom: 40px;
-  border: 1px solid #1f2937;
-  border-radius: 10px;
-  overflow: hidden;
-}
-
-.fixture-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 14px 20px;
-  background: #0d1117;
-  border-bottom: 1px solid #1f2937;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-
-.fixture-teams {
-  font-size: 13px;
   letter-spacing: 1px;
+  border: 1px solid #333;
+  color: #888;
+  margin-right: 4px;
 }
+.badge-goal    { border-color: #fff; color: #fff; }
+.badge-result  { border-color: #888; color: #888; }
+.badge-void    { border-color: #333; color: #444; text-decoration: line-through; }
+.badge-closed  { border-color: #222; color: #444; }
+.badge-upcoming { border-color: #444; color: #888; }
+.badge-live    { border-color: #fff; color: #fff; }
 
-.fixture-meta {
-  display: flex;
-  align-items: center;
+/* wallet button override */
+.wallet-adapter-button {
+  background: #fff !important;
+  color: #000 !important;
+  font-family: inherit !important;
+  font-size: 10px !important;
+  border-radius: 0 !important;
+  padding: 8px 14px !important;
+  height: auto !important;
 }
-
-.fixture-empty {
-  padding: 32px;
-  text-align: center;
-  color: #4b5563;
-  font-size: 10px;
-  background: #111827;
+.wallet-adapter-button:hover {
+  background: #ddd !important;
 }
-
-.grid {
-  padding: 16px;
-  background: #111827;
-}
-
-.badge-upcoming { background: #1e3a5f; color: #60a5fa; }
-.badge-live     { background: #064e3b; color: #34d399; }

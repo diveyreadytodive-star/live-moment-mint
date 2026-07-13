@@ -12,7 +12,6 @@ interface Props {
 }
 
 const PROGRAM_ID = new PublicKey('CL6e7FZkgQ6GLwYbmcsz4kwi2hZzzWoP7ckWgSbvF7ja');
-// sha256("global:mint_moment")[0..8]
 const MINT_DISCRIMINATOR = Buffer.from([157, 243, 211, 63, 10, 118, 217, 42]);
 
 export function MomentCard({ moment, onMinted }: Props) {
@@ -23,73 +22,47 @@ export function MomentCard({ moment, onMinted }: Props) {
   const [mintError, setMintError] = useState<string | null>(null);
   const [mintTx, setMintTx] = useState<string | null>(null);
 
-  // Countdown timer
   useEffect(() => {
-    const update = () => {
-      const now = Math.floor(Date.now() / 1000);
-      setTimeLeft(Math.max(0, moment.closeTs - now));
-    };
+    const update = () => setTimeLeft(Math.max(0, moment.closeTs - Math.floor(Date.now() / 1000)));
     update();
-    const interval = setInterval(update, 1000);
-    return () => clearInterval(interval);
+    const t = setInterval(update, 1000);
+    return () => clearInterval(t);
   }, [moment.closeTs]);
 
   const isOpen = moment.status === 'OPEN' && timeLeft > 0;
   const isVoid = moment.status === 'VOID';
 
-  const fmt = (secs: number) => {
-    const m = Math.floor(secs / 60);
-    const s = secs % 60;
-    return `${m}:${s.toString().padStart(2, '0')}`;
-  };
+  const fmt = (s: number) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
 
   const handleMint = async () => {
     if (!publicKey || !connected) return;
     setMinting(true);
     setMintError(null);
-    setMintTx(null);
-
     try {
       let txSig: string;
-
       if (moment.momentPda) {
-        // --- On-chain path: send mint_moment instruction ---
-        const momentPubkey = new PublicKey(moment.momentPda);
         const ix = new TransactionInstruction({
           programId: PROGRAM_ID,
           keys: [
-            { pubkey: momentPubkey, isSigner: false, isWritable: true },
-            { pubkey: publicKey,    isSigner: true,  isWritable: false },
+            { pubkey: new PublicKey(moment.momentPda), isSigner: false, isWritable: true },
+            { pubkey: publicKey, isSigner: true, isWritable: false },
           ],
           data: MINT_DISCRIMINATOR,
         });
-
         const tx = new Transaction().add(ix);
         const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash();
         tx.recentBlockhash = blockhash;
         tx.feePayer = publicKey;
-
         txSig = await sendTransaction(tx, connection);
-        await connection.confirmTransaction(
-          { signature: txSig, blockhash, lastValidBlockHeight },
-          'confirmed',
-        );
+        await connection.confirmTransaction({ signature: txSig, blockhash, lastValidBlockHeight }, 'confirmed');
       } else {
-        // --- Offline / replay fallback (no on-chain window yet) ---
         txSig = `offline-${Date.now()}`;
       }
-
-      // Record in DB
-      const res = await fetch('/api/mint', {
+      await fetch('/api/mint', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ momentId: moment.id, minter: publicKey.toBase58(), txSig }),
       });
-      if (!res.ok) {
-        const err = await res.json();
-        throw new Error(err.error ?? 'Mint failed');
-      }
-
       setMintTx(txSig);
       onMinted();
     } catch (err: any) {
@@ -99,29 +72,35 @@ export function MomentCard({ moment, onMinted }: Props) {
     }
   };
 
+  const label = moment.kind === 'GOAL'
+    ? `GOAL ${moment.minute}'  ${moment.scoreP1}–${moment.scoreP2}`
+    : `FT  ${moment.scoreP1}–${moment.scoreP2}`;
+
   return (
     <div className="moment-card">
       {moment.imageUrl && (
-        <img src={moment.imageUrl} alt={moment.teamScorerId ? `Team ${moment.teamScorerId} Goal` : 'Moment'} loading="lazy" />
+        <img src={moment.imageUrl} alt={label} loading="lazy" />
       )}
       <div className="moment-card-body">
-        <div>
-          <span className={`badge badge-${moment.kind.toLowerCase()}`}>{moment.kind}</span>
-          {isVoid && <span className="badge badge-void">VOID</span>}
-          {!isOpen && !isVoid && <span className="badge badge-closed">CLOSED</span>}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+          <span style={{ fontSize: 10, color: isVoid ? '#444' : isOpen ? '#fff' : '#555', letterSpacing: 1 }}>
+            {isVoid ? 'VOID' : label}
+          </span>
+          {isOpen && (
+            <span className="countdown">{fmt(timeLeft)}</span>
+          )}
+          {!isOpen && !isVoid && (
+            <span style={{ fontSize: 9, color: '#444' }}>CLOSED</span>
+          )}
         </div>
-
-        {isOpen && (
-          <div className="countdown">⏱ {fmt(timeLeft)}</div>
-        )}
 
         {isOpen && (
           connected ? (
             <button className="mint-btn" onClick={handleMint} disabled={minting}>
-              {minting ? 'MINTING...' : 'MINT NOW'}
+              {minting ? 'MINTING...' : 'MINT'}
             </button>
           ) : (
-            <WalletMultiButton style={{ width: '100%', justifyContent: 'center', fontFamily: 'inherit', fontSize: '11px' }} />
+            <WalletMultiButton />
           )
         )}
 
@@ -130,22 +109,14 @@ export function MomentCard({ moment, onMinted }: Props) {
             href={`https://explorer.solana.com/tx/${mintTx}?cluster=devnet`}
             target="_blank"
             rel="noreferrer"
-            style={{ color: '#10b981', fontSize: 9, marginTop: 6, display: 'block' }}
+            style={{ display: 'block', marginTop: 8, fontSize: 9, color: '#666' }}
           >
-            ✓ Minted — view tx →
+            ↗ explorer
           </a>
         )}
-        {mintTx && mintTx.startsWith('offline-') && (
-          <p style={{ color: '#10b981', fontSize: 9, marginTop: 6 }}>✓ Minted (offline mode)</p>
-        )}
-
         {mintError && (
-          <p style={{ color: '#f87171', fontSize: 9, marginTop: 6 }}>{mintError}</p>
+          <p style={{ color: '#666', fontSize: 9, marginTop: 6 }}>{mintError}</p>
         )}
-
-        <a href={'/moment/' + moment.id} style={{ color: '#60a5fa', fontSize: 9, marginTop: 8, display: 'block' }}>
-          view details →
-        </a>
       </div>
     </div>
   );
