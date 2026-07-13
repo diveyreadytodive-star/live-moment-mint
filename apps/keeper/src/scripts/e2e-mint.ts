@@ -143,8 +143,9 @@ async function main() {
   // ── Step 4: verify asset on-chain ────────────────────────────────────────
   console.log(`\n[4] Verifying asset on Solana devnet...`);
   if (!assetId || assetId.startsWith('no-keeper-key-')) {
-    console.warn('    SKIP: assetId indicates KEEPER_PRIVATE_KEY was not set on the server.');
-    console.warn('    Real NFT creation requires KEEPER_PRIVATE_KEY in server environment.');
+    console.error('ERROR: assetId is placeholder — KEEPER_PRIVATE_KEY not set on server.');
+    console.error('  Real NFT creation requires KEEPER_PRIVATE_KEY in the server environment.');
+    process.exit(1);
   } else {
     try {
       const assetPubkey = new PublicKey(assetId);
@@ -183,9 +184,7 @@ async function main() {
   if (txSig) {
     console.log(`on-chain tx  : https://explorer.solana.com/tx/${txSig}?cluster=devnet`);
   }
-  if (assetId && !assetId.startsWith('no-keeper-key-')) {
-    console.log(`NFT asset    : https://explorer.solana.com/address/${assetId}?cluster=devnet`);
-  }
+  console.log(`NFT asset    : https://explorer.solana.com/address/${assetId}?cluster=devnet`);
   console.log(`dedup (409)  : PASS`);
   console.log(`\nHappy path complete.`);
 }
