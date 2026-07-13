@@ -88,3 +88,58 @@ anchor test --skip-local-validator
 - [x] Phase 3: Anchor program deployed + keeper wired
 - [x] Phase 4: DB integration + metadata JSON
 - [x] Phase 5: Web SSE push + moment detail page
+
+---
+
+## P0 — Real NFT Minting (2026-07-13)
+
+### Decision: Server-side Metaplex Core minting
+
+**Why not full on-chain CPI?**
+Rust program updated with `mpl-core` CPI (`src/lib.rs`). `cargo build-sbf` succeeds (only warnings).
+Devnet upgrade failed: new binary is ~325KB vs existing 206KB slot → needs ~2.26 SOL buffer but
+keeper wallet had 0.96 SOL and devnet faucet was rate-limited.
+
+**Current flow:**
+1. Client calls existing `mint_moment` on-chain (time guard active)
+2. `/api/mint` verifies tx called our program + succeeded
+3. Server creates real Metaplex Core asset via UMI (`@metaplex-foundation/mpl-core`)
+   - `KEEPER_PRIVATE_KEY` env var pays rent; minter is set as owner
+4. Real `assetId` stored in `Mint` row
+
+**Pending full on-chain CPI (after SOL top-up):**
+```bash
+solana airdrop 2 CSrPnu3y3vUeRPpJmsVukXyDZbHKLw7sFyweSubj97ve --url devnet
+cd programs/moment-mint && anchor build
+solana program deploy target/sbpf-solana-solana/release/moment_mint.so \
+  --program-id target/deploy/moment_mint-keypair.json \
+  --keypair ../../devnet-keeper.json --url devnet
+# Then update MomentCard.tsx accounts and idl/moment_mint.json
+```
+
+**Required env var:** `KEEPER_PRIVATE_KEY` = JSON byte array from `devnet-keeper.json`
+```bash
+vercel env add KEEPER_PRIVATE_KEY  # paste contents of devnet-keeper.json
+```
+
+## P1 — Live Event Schema
+
+Schema verified against real devnet data (FixtureId 18222446, July 2026). PascalCase confirmed correct.
+Capture script added: `pnpm --filter keeper capture` → `captured-events.jsonl`
+
+## P2 — Metadata/Image Reachability
+
+Images + metadata now stored in Neon DB (`imageData` BYTEA, `metadataJson` TEXT).
+Served via `/api/moments/[id]/image` and `/api/moments/[id]/metadata`.
+`metadataUrl` = `${PUBLIC_BASE_URL}/api/moments/${id}/metadata` → public, stable, cross-deployment.
+
+**DB migration:**
+```bash
+DATABASE_URL=<neon_url> npx prisma db push
+# or run: prisma/migrations/0002_add_moment_fields/migration.sql
+```
+
+## Ancillary
+
+- `onchainStatus` field added to Moment (`null` | `'OK'` | `'FAILED'`) — keeper logs FAILED clearly
+- RESULT `|| StatusId===100` guard left as-is (devnet-verified, no observed false positives)

@@ -22,25 +22,28 @@ model Fixture {
 }
 
 model Moment {
-  id           Int      @id @default(autoincrement())
-  fixtureId    String
-  kind         String   // GOAL | RESULT
-  seq          Int
-  tsEvent      Int
-  teamScorerId String?  // "1" | "2"
-  goalType     String?  // "Head" | "Foot" | "Penalty" | "OwnGoal"
-  minute       Int?
-  scoreP1      Int      @default(0)
-  scoreP2      Int      @default(0)
-  imageUrl     String?
-  metadataUrl  String?
-  momentPda    String?
-  status       String   @default("OPEN") // OPEN | CLOSED | VOID
-  openTs       Int
-  closeTs      Int
+  id            Int      @id @default(autoincrement())
+  fixtureId     String
+  kind          String   // GOAL | RESULT
+  seq           Int
+  tsEvent       Int
+  teamScorerId  String?  // "1" | "2"
+  goalType      String?  // "Head" | "Foot" | "Penalty" | "OwnGoal"
+  minute        Int?
+  scoreP1       Int      @default(0)
+  scoreP2       Int      @default(0)
+  imageUrl      String?
+  metadataUrl   String?
+  momentPda     String?
+  onchainStatus String?  // null | 'OK' | 'FAILED'
+  imageData     Bytes?   // PNG bytes, served via /api/moments/[id]/image
+  metadataJson  String?  // JSON text, served via /api/moments/[id]/metadata
+  status        String   @default("OPEN") // OPEN | CLOSED | VOID
+  openTs        Int
+  closeTs       Int
 
-  fixture      Fixture? @relation(fields: [fixtureId], references: [id])
-  mints        Mint[]
+  fixture       Fixture? @relation(fields: [fixtureId], references: [id])
+  mints         Mint[]
 
   @@unique([fixtureId, seq, kind])
 }

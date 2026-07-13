@@ -1,4 +1,5 @@
 use anchor_lang::prelude::*;
+use mpl_core::instructions::CreateV1CpiBuilder;
 
 declare_id!("CL6e7FZkgQ6GLwYbmcsz4kwi2hZzzWoP7ckWgSbvF7ja");
 
@@ -37,6 +38,7 @@ pub mod moment_mint {
     }
 
     /// Called by anyone to mint an NFT during the open window.
+    /// Creates a real Metaplex Core asset owned by the minter.
     pub fn mint_moment(ctx: Context<MintMoment>) -> Result<()> {
         let moment = &mut ctx.accounts.moment;
         let clock = Clock::get()?;
@@ -47,12 +49,24 @@ pub mod moment_mint {
         require!(now <= moment.close_ts, MomentoError::WindowClosed);
 
         moment.mint_count += 1;
-        // TODO: CPI to mpl-core to create asset (stretch)
-        // For MVP, just increment count and emit event
+
+        let name = format!("Momento #{}", moment.mint_count);
+        let uri  = moment.metadata_uri.clone();
+
+        // CPI to Metaplex Core — creates asset owned by minter
+        CreateV1CpiBuilder::new(&ctx.accounts.mpl_core_program)
+            .asset(&ctx.accounts.asset)
+            .payer(&ctx.accounts.minter)
+            .owner(Some(&ctx.accounts.minter))
+            .name(name)
+            .uri(uri)
+            .invoke()?;
+
         emit!(MintEvent {
             fixture_id: moment.fixture_id.clone(),
             seq: moment.seq,
             minter: ctx.accounts.minter.key(),
+            asset: ctx.accounts.asset.key(),
             mint_count: moment.mint_count,
         });
         Ok(())
@@ -86,7 +100,15 @@ pub struct OpenMomentWindow<'info> {
 pub struct MintMoment<'info> {
     #[account(mut, constraint = moment.status == STATUS_OPEN)]
     pub moment: Account<'info, Moment>,
+    #[account(mut)]
     pub minter: Signer<'info>,
+    /// CHECK: New Metaplex Core asset account (fresh keypair from client)
+    #[account(mut)]
+    pub asset: Signer<'info>,
+    /// CHECK: Metaplex Core program — verified via address constraint
+    #[account(address = mpl_core::ID @ MomentoError::InvalidMplCoreProgram)]
+    pub mpl_core_program: UncheckedAccount<'info>,
+    pub system_program: Program<'info, System>,
 }
 
 #[derive(Accounts)]
@@ -132,6 +154,7 @@ pub struct MintEvent {
     pub fixture_id: String,
     pub seq: u64,
     pub minter: Pubkey,
+    pub asset: Pubkey,
     pub mint_count: u64,
 }
 
@@ -141,4 +164,6 @@ pub enum MomentoError {
     WindowNotOpen,
     #[msg("Minting window has closed")]
     WindowClosed,
+    #[msg("Invalid Metaplex Core program")]
+    InvalidMplCoreProgram,
 }

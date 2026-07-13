@@ -1,13 +1,12 @@
 /**
  * Opens / voids minting windows.
- * Phase 4 keeper integration — DB + image gen.
- * Phase 3: calls Anchor program on-chain + Phase 5: broadcasts SSE.
+ * Images and metadata are stored in the DB (imageData, metadataJson) and
+ * served via /api/moments/[id]/image and /api/moments/[id]/metadata.
+ * This makes them reachable from any deployment (Vercel + local keeper).
  */
 import type { PrismaClient } from '@prisma/client';
 import type { GoalEvent, ResultEvent, Fixture } from '@momento/shared';
 import { renderGoalPng, renderResultPng } from '@momento/image';
-import fs from 'fs';
-import path from 'path';
 import axios from 'axios';
 import { onChainOpenWindow, onChainVoidMoment } from './onchain';
 
@@ -16,12 +15,6 @@ const RESULT_WINDOW_SECS = 10 * 60; // 10 min
 
 // Idempotency guard (in-process)
 const processedKeys = new Set<string>();
-
-const WEB_PUBLIC = path.resolve(__dirname, '../../../../apps/web/public');
-
-function ensureDir(dir: string) {
-  fs.mkdirSync(dir, { recursive: true });
-}
 
 /** Phase 5: push moment to web SSE feed */
 async function broadcastMomentOpened(moment: any) {
@@ -62,30 +55,25 @@ export async function openGoalWindow(
 
   // Generate image
   const pngBuffer = renderGoalPng({
-    p1Name:      fixture.p1Name,
-    p2Name:      fixture.p2Name,
-    p1Color:     fixture.p1Color,
-    p2Color:     fixture.p2Color,
-    scorerName:  scorerTeamName,
-    scorerNumber: event.scoringTeam,   // show "1" or "2" as shirt placeholder
-    minute:      event.minute,
-    scoreP1:     event.scoreP1,
-    scoreP2:     event.scoreP2,
-    isPenalty:   event.isPenalty,
-    isOwnGoal:   event.isOwnGoal,
+    p1Name:       fixture.p1Name,
+    p2Name:       fixture.p2Name,
+    p1Color:      fixture.p1Color,
+    p2Color:      fixture.p2Color,
+    scorerName:   scorerTeamName,
+    scorerNumber: event.scoringTeam,
+    minute:       event.minute,
+    scoreP1:      event.scoreP1,
+    scoreP2:      event.scoreP2,
+    isPenalty:    event.isPenalty,
+    isOwnGoal:    event.isOwnGoal,
   });
 
-  const imgDir = path.join(WEB_PUBLIC, 'moments');
-  ensureDir(imgDir);
-  const imgFilename  = `${event.fixtureId}-${event.seq}-goal.png`;
-  fs.writeFileSync(path.join(imgDir, imgFilename), pngBuffer);
-  const imageUrl = `${publicBaseUrl}/moments/${imgFilename}`;
-
-  // Metadata JSON
-  const metadata = {
+  // URLs are based on moment ID assigned after DB create — placeholder first
+  // Real URLs are set after moment.id is known
+  const metadataObj = {
     name: `${scorerTeamName} Goal — ${event.minute}'`,
     description: `${fixture.p1Name} ${event.scoreP1}–${event.scoreP2} ${fixture.p2Name}`,
-    image: imageUrl,
+    image: '', // filled after insert
     attributes: [
       { trait_type: 'fixture',   value: event.fixtureId },
       { trait_type: 'kind',      value: 'GOAL' },
@@ -96,12 +84,7 @@ export async function openGoalWindow(
     ],
   };
 
-  const metaDir = path.join(WEB_PUBLIC, 'metadata');
-  ensureDir(metaDir);
-  const metaFilename = `${event.fixtureId}-${event.seq}-goal.json`;
-  fs.writeFileSync(path.join(metaDir, metaFilename), JSON.stringify(metadata, null, 2));
-  const metadataUrl = `${publicBaseUrl}/metadata/${metaFilename}`;
-
+  // Insert moment first to get the auto-incremented ID
   const moment = await (db as any).moment.create({
     data: {
       fixtureId:    event.fixtureId,
@@ -113,11 +96,24 @@ export async function openGoalWindow(
       minute:       event.minute,
       scoreP1:      event.scoreP1,
       scoreP2:      event.scoreP2,
-      imageUrl,
-      metadataUrl,
       status:       'OPEN',
       openTs,
       closeTs,
+    },
+  });
+
+  // Now that we have moment.id, build stable public URLs and store image in DB
+  const imageUrl    = `${publicBaseUrl}/api/moments/${moment.id}/image`;
+  const metadataUrl = `${publicBaseUrl}/api/moments/${moment.id}/metadata`;
+  metadataObj.image = imageUrl;
+
+  await (db as any).moment.update({
+    where: { id: moment.id },
+    data: {
+      imageUrl,
+      metadataUrl,
+      imageData:    pngBuffer,
+      metadataJson: JSON.stringify(metadataObj),
     },
   });
 
@@ -139,8 +135,14 @@ export async function openGoalWindow(
     if (pda) {
       await (db as any).moment.update({
         where: { id: moment.id },
-        data: { momentPda: pda },
+        data: { momentPda: pda, onchainStatus: 'OK' },
       });
+    } else {
+      await (db as any).moment.update({
+        where: { id: moment.id },
+        data: { onchainStatus: 'FAILED' },
+      });
+      console.error(`[mintWindow] GOAL id=${moment.id} on-chain open FAILED — moment stays DB-only`);
     }
   }
 
@@ -183,16 +185,10 @@ export async function openResultWindow(
     seed: event.seq,
   });
 
-  const imgDir = path.join(WEB_PUBLIC, 'moments');
-  ensureDir(imgDir);
-  const imgFilename  = `${event.fixtureId}-${event.seq}-result.png`;
-  fs.writeFileSync(path.join(imgDir, imgFilename), pngBuffer);
-  const imageUrl = `${publicBaseUrl}/moments/${imgFilename}`;
-
-  const metadata = {
+  const metadataObj = {
     name: isDraw ? `DRAW — ${fixture.p1Name} vs ${fixture.p2Name}` : `${winnerName} WIN`,
     description: `FT: ${fixture.p1Name} ${event.scoreP1}–${event.scoreP2} ${fixture.p2Name}`,
-    image: imageUrl,
+    image: '', // filled after insert
     attributes: [
       { trait_type: 'fixture', value: event.fixtureId },
       { trait_type: 'kind',    value: 'RESULT' },
@@ -202,12 +198,6 @@ export async function openResultWindow(
     ],
   };
 
-  const metaDir = path.join(WEB_PUBLIC, 'metadata');
-  ensureDir(metaDir);
-  const metaFilename = `${event.fixtureId}-${event.seq}-result.json`;
-  fs.writeFileSync(path.join(metaDir, metaFilename), JSON.stringify(metadata, null, 2));
-  const metadataUrl = `${publicBaseUrl}/metadata/${metaFilename}`;
-
   const moment = await (db as any).moment.create({
     data: {
       fixtureId: event.fixtureId,
@@ -216,11 +206,23 @@ export async function openResultWindow(
       tsEvent:   Math.floor(event.ts / 1000),
       scoreP1:   event.scoreP1,
       scoreP2:   event.scoreP2,
-      imageUrl,
-      metadataUrl,
       status:    'OPEN',
       openTs,
       closeTs,
+    },
+  });
+
+  const imageUrl    = `${publicBaseUrl}/api/moments/${moment.id}/image`;
+  const metadataUrl = `${publicBaseUrl}/api/moments/${moment.id}/metadata`;
+  metadataObj.image = imageUrl;
+
+  await (db as any).moment.update({
+    where: { id: moment.id },
+    data: {
+      imageUrl,
+      metadataUrl,
+      imageData:    pngBuffer,
+      metadataJson: JSON.stringify(metadataObj),
     },
   });
 
@@ -242,8 +244,14 @@ export async function openResultWindow(
     if (pda) {
       await (db as any).moment.update({
         where: { id: moment.id },
-        data: { momentPda: pda },
+        data: { momentPda: pda, onchainStatus: 'OK' },
       });
+    } else {
+      await (db as any).moment.update({
+        where: { id: moment.id },
+        data: { onchainStatus: 'FAILED' },
+      });
+      console.error(`[mintWindow] RESULT id=${moment.id} on-chain open FAILED — moment stays DB-only`);
     }
   }
 

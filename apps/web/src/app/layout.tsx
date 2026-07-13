@@ -14,7 +14,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body>
         <WalletProvider>
           <header className="header">
-            <span className="logo">MOMENTO</span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 24 }}>
+              <a href="/" className="logo" style={{ textDecoration: 'none', color: '#fff' }}>MOMENTO</a>
+              <a href="/collection" style={{ fontSize: 10, color: '#555', letterSpacing: 1, textDecoration: 'none' }}>MY COLLECTION</a>
+            </div>
             <HeaderWallet />
           </header>
           <main>{children}</main>
