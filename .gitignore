@@ -15,3 +15,7 @@ keeper*.json
 *.sqlite
 *.db
 .vercel
+# Local env and build artifacts
+apps/web/.env.local
+apps/keeper/captured-events.jsonl
+*.tsbuildinfo
