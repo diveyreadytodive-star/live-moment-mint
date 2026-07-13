@@ -122,6 +122,72 @@ solana program deploy target/sbpf-solana-solana/release/moment_mint.so \
 vercel env add KEEPER_PRIVATE_KEY  # paste contents of devnet-keeper.json
 ```
 
+## Local Dev Setup (2026-07-13)
+
+### Quick Start (로컬 전체 스택)
+```bash
+# 1. Postgres 기동 (최초 1회)
+docker run -d --name momento-pg -e POSTGRES_PASSWORD=momento -e POSTGRES_DB=momento -p 5433:5432 postgres:16
+# 재기동: docker start momento-pg
+
+# 2. 스키마 반영 + Prisma 클라이언트 생성
+DATABASE_URL="postgresql://postgres:momento@localhost:5433/momento" pnpm exec prisma db push
+pnpm exec prisma generate
+
+# 3. 스모크 테스트 (전체 E2E)
+pnpm smoke
+```
+
+### Smoke Test (scripts/smoke.sh)
+`pnpm smoke` — 자동으로 다음을 검증:
+1. Postgres 연결
+2. DB 리셋
+3. web 서버 기동
+4. keeper REPLAY_MODE=1 → 4개 moment 생성
+5. GET /api/moments → OPEN 목록
+6. GET /api/moments/:id/image → 200 image/png
+7. GET /api/moments/:id/metadata → 200 JSON (name/image/attributes)
+8. void moment → mint 시도 409
+9. closeTs 지난 moment → mint 시도 409
+10. E2E 실민팅 → `/api/mint` 200 + devnet asset 실재 확인
+11. 중복 요청 → 409
+12. /api/mints?wallet= → 컬렉션 반영
+
+### TxLINE API Endpoints Used
+- `POST /auth/guest/start` → JWT 발급
+- `GET /api/fixtures/snapshot` → 경기 목록 (PascalCase)
+- `GET /api/scores/stream` → SSE 실시간 이벤트
+- `GET /api/scores/updates/{fixtureId}` → 과거 이벤트 재생 (데모용)
+
+### Known Frictions with TxLINE
+- SSE stream은 경기 없을 때 조용함 (아무것도 안 옴). `scores/updates` endpoint로 대체 가능.
+- `eventsource` npm 패키지가 자체 .d.ts 없음 → `packages/txline/src/eventsource.d.ts` 수동 stub.
+- Guest JWT는 단기 유효. 장기 운영 시 refresh 로직 필요.
+
+### Demo Scenario (브라우저 없이 재현 가능)
+```bash
+# Terminal 1 — web
+DATABASE_URL="postgresql://postgres:momento@localhost:5433/momento" \
+KEEPER_PRIVATE_KEY="$(cat devnet-keeper.json)" \
+SOLANA_RPC_URL=https://api.devnet.solana.com \
+pnpm --filter web dev
+
+# Terminal 2 — keeper replay (골→창 오픈)
+DATABASE_URL="postgresql://postgres:momento@localhost:5433/momento" \
+KEEPER_WALLET_PATH="../../devnet-keeper.json" \
+REPLAY_MODE=1 TXLINE_API_ORIGIN=https://txline-dev.txodds.com \
+TXLINE_API_TOKEN=txoracle_api_08b2494a8e484db086d7718872588085 \
+PUBLIC_BASE_URL=http://localhost:3000 \
+pnpm --filter keeper exec ts-node src/index.ts
+
+# Terminal 3 — E2E 민팅 (moment id는 replay 출력에서 확인)
+BASE_URL=http://localhost:3000 MOMENT_ID=1 KEYPAIR_PATH=./devnet-keeper.json \
+pnpm --filter keeper e2e-mint
+```
+순서: 골 이벤트 → OPEN moment 생성 → e2e-mint → devnet NFT 확인 → 컬렉션 반영.
+
+---
+
 ## P1 — Live Event Schema (2026-07-13)
 
 Schema in `packages/shared/src/schemas.ts` cross-validated against live `/api/scores/updates/18222446`.
