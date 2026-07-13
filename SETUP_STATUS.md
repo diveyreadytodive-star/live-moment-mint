@@ -176,7 +176,7 @@ pnpm --filter web dev
 DATABASE_URL="postgresql://postgres:momento@localhost:5433/momento" \
 KEEPER_WALLET_PATH="../../devnet-keeper.json" \
 REPLAY_MODE=1 TXLINE_API_ORIGIN=https://txline-dev.txodds.com \
-TXLINE_API_TOKEN=txoracle_api_08b2494a8e484db086d7718872588085 \
+TXLINE_API_TOKEN=<your_txline_api_token> \
 PUBLIC_BASE_URL=http://localhost:3000 \
 pnpm --filter keeper exec ts-node src/index.ts
 
