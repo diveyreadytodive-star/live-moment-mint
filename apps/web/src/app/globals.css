@@ -97,3 +97,48 @@ main {
 
 .status-open { color: #10b981; }
 .status-closed { color: #6b7280; }
+
+/* Fixture sections */
+.fixture-section {
+  margin-bottom: 40px;
+  border: 1px solid #1f2937;
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.fixture-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 20px;
+  background: #0d1117;
+  border-bottom: 1px solid #1f2937;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.fixture-teams {
+  font-size: 13px;
+  letter-spacing: 1px;
+}
+
+.fixture-meta {
+  display: flex;
+  align-items: center;
+}
+
+.fixture-empty {
+  padding: 32px;
+  text-align: center;
+  color: #4b5563;
+  font-size: 10px;
+  background: #111827;
+}
+
+.grid {
+  padding: 16px;
+  background: #111827;
+}
+
+.badge-upcoming { background: #1e3a5f; color: #60a5fa; }
+.badge-live     { background: #064e3b; color: #34d399; }

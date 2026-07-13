@@ -21,6 +21,16 @@ const {
   REPLAY_MODE        = '',
 } = process.env;
 
+const WORLD_CUP_COMPETITION_ID = 72;
+
+const DEFAULT_COLORS: Record<string, string> = {
+  '1489': '#75aadb', // Argentina
+  '3099': '#d52b1e', // Switzerland
+  '1999': '#002395', // France
+  '3021': '#c60b1e', // Spain
+  '1888': '#012169', // England
+};
+
 const db = new PrismaClient();
 
 // Demo fixture definition (used in replay mode)
@@ -67,6 +77,29 @@ async function main() {
       console.error('[keeper] Error:', err);
     }
   };
+
+  // Seed World Cup fixtures into DB
+  const allFixtures = await client.getFixturesSnapshot();
+  const wcFixtures = allFixtures.filter((f: any) => f.CompetitionId === WORLD_CUP_COMPETITION_ID);
+  console.log(`[keeper] Found ${wcFixtures.length} World Cup fixtures`);
+  for (const f of wcFixtures) {
+    const p1Id = String(f.Participant1Id);
+    const p2Id = String(f.Participant2Id);
+    const fixture = {
+      id:        String(f.FixtureId),
+      p1Id,
+      p2Id,
+      p1Name:    f.Participant1 ?? 'Team 1',
+      p2Name:    f.Participant2 ?? 'Team 2',
+      p1IsHome:  f.Participant1IsHome ?? true,
+      p1Color:   DEFAULT_COLORS[p1Id] ?? '#1a56db',
+      p2Color:   DEFAULT_COLORS[p2Id] ?? '#e02424',
+      kickoffTs: Math.floor((f.StartTime ?? 0) / 1000),
+    };
+    await (db as any).fixture.upsert({ where: { id: fixture.id }, update: fixture, create: fixture });
+    seedFixture(fixture);
+    console.log(`[keeper] Seeded fixture ${fixture.id}: ${fixture.p1Name} vs ${fixture.p2Name}`);
+  }
 
   if (REPLAY_MODE === '1') {
     console.log('REPLAY mode: demo events (Argentina 2-1 Switzerland)');
