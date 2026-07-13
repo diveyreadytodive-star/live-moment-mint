@@ -19,3 +19,4 @@ keeper*.json
 apps/web/.env.local
 apps/keeper/captured-events.jsonl
 *.tsbuildinfo
+.env.local.dev
