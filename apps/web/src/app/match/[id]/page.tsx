@@ -39,8 +39,13 @@ export default function MatchPage() {
 
   if (!fixture) return <p style={{ color: '#333' }}>—</p>;
 
-  const open   = fixture.moments.filter(m => m.status === 'OPEN' && m.closeTs > Math.floor(Date.now() / 1000));
+  const now = Math.floor(Date.now() / 1000);
+  const open    = fixture.moments.filter(m => m.status === 'OPEN' && m.closeTs > now);
+  const openResult = open.filter(m => m.kind === 'RESULT');
+  const openGoal   = open.filter(m => m.kind !== 'RESULT');
   const closed = fixture.moments.filter(m => !open.includes(m));
+  const closedResult = closed.filter(m => m.kind === 'RESULT');
+  const closedGoal   = closed.filter(m => m.kind !== 'RESULT');
 
   return (
     <div>
@@ -59,24 +64,46 @@ export default function MatchPage() {
         </h1>
       </div>
 
-      {open.length > 0 && (
+      {openResult.length > 0 && (
         <section style={{ marginBottom: 40 }}>
           <p style={{ fontSize: 10, color: '#fff', letterSpacing: 2, marginBottom: 16 }}>
-            OPEN — MINT NOW
+            WINNER — MINT NOW
           </p>
           <div className="grid">
-            {open.map(m => <MomentCard key={m.id} moment={m} onMinted={fetchFixture} />)}
+            {openResult.map(m => <MomentCard key={m.id} moment={m} onMinted={fetchFixture} />)}
           </div>
         </section>
       )}
 
-      {closed.length > 0 && (
-        <section>
-          <p style={{ fontSize: 10, color: '#444', letterSpacing: 2, marginBottom: 16 }}>
-            PAST MOMENTS
+      {openGoal.length > 0 && (
+        <section style={{ marginBottom: 40 }}>
+          <p style={{ fontSize: 10, color: '#fff', letterSpacing: 2, marginBottom: 16 }}>
+            GOALS — MINT NOW
           </p>
           <div className="grid">
-            {closed.map(m => <MomentCard key={m.id} moment={m} onMinted={fetchFixture} />)}
+            {openGoal.map(m => <MomentCard key={m.id} moment={m} onMinted={fetchFixture} />)}
+          </div>
+        </section>
+      )}
+
+      {closedResult.length > 0 && (
+        <section style={{ marginBottom: 40 }}>
+          <p style={{ fontSize: 10, color: '#444', letterSpacing: 2, marginBottom: 16 }}>
+            PAST WINNER
+          </p>
+          <div className="grid">
+            {closedResult.map(m => <MomentCard key={m.id} moment={m} onMinted={fetchFixture} />)}
+          </div>
+        </section>
+      )}
+
+      {closedGoal.length > 0 && (
+        <section>
+          <p style={{ fontSize: 10, color: '#444', letterSpacing: 2, marginBottom: 16 }}>
+            PAST GOALS
+          </p>
+          <div className="grid">
+            {closedGoal.map(m => <MomentCard key={m.id} moment={m} onMinted={fetchFixture} />)}
           </div>
         </section>
       )}

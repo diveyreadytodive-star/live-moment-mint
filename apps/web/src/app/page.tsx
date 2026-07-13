@@ -11,6 +11,28 @@ interface Fixture {
   moments: Moment[];
 }
 
+const FLAG: Record<string, string> = {
+  'France': '🇫🇷', 'Spain': '🇪🇸', 'England': '🏴󠁧󠁢󠁥󠁮󠁧󠁿', 'Argentina': '🇦🇷',
+  'Brazil': '🇧🇷', 'Germany': '🇩🇪', 'Portugal': '🇵🇹', 'Netherlands': '🇳🇱',
+  'Italy': '🇮🇹', 'USA': '🇺🇸', 'Mexico': '🇲🇽', 'Canada': '🇨🇦',
+  'Japan': '🇯🇵', 'South Korea': '🇰🇷', 'Morocco': '🇲🇦', 'Switzerland': '🇨🇭',
+  'Croatia': '🇭🇷', 'Belgium': '🇧🇪', 'Denmark': '🇩🇰', 'Serbia': '🇷🇸',
+  'Poland': '🇵🇱', 'Australia': '🇦🇺', 'Ghana': '🇬🇭', 'Senegal': '🇸🇳',
+  'Uruguay': '🇺🇾', 'Colombia': '🇨🇴', 'Ecuador': '🇪🇨', 'Chile': '🇨🇱',
+  'Saudi Arabia': '🇸🇦', 'Iran': '🇮🇷', 'Wales': '🏴󠁧󠁢󠁷󠁬󠁳󠁿', 'Scotland': '🏴󠁧󠁢󠁳󠁣󠁴󠁿',
+  'Turkey': '🇹🇷', 'Ukraine': '🇺🇦', 'Austria': '🇦🇹', 'Hungary': '🇭🇺',
+  'New Zealand': '🇳🇿', 'Costa Rica': '🇨🇷', 'Panama': '🇵🇦', 'Honduras': '🇭🇳',
+  'Paraguay': '🇵🇾', 'Bolivia': '🇧🇴', 'Peru': '🇵🇪', 'Venezuela': '🇻🇪',
+  'Nigeria': '🇳🇬', 'Cameroon': '🇨🇲', 'Tunisia': '🇹🇳', 'Egypt': '🇪🇬',
+  'Algeria': '🇩🇿', 'Mali': '🇲🇱', 'Ivory Coast': '🇨🇮', 'Congo': '🇨🇩',
+  'South Africa': '🇿🇦', 'Kenya': '🇰🇪', 'Qatar': '🇶🇦', 'UAE': '🇦🇪',
+  'China': '🇨🇳', 'Indonesia': '🇮🇩', 'Thailand': '🇹🇭', 'Vietnam': '🇻🇳',
+};
+
+function flag(name: string) {
+  return FLAG[name] ?? '🏳';
+}
+
 function MatchStatus({ kickoffTs, moments }: { kickoffTs: number; moments: Moment[] }) {
   const [diff, setDiff] = useState(kickoffTs - Math.floor(Date.now() / 1000));
   useEffect(() => {
@@ -20,23 +42,21 @@ function MatchStatus({ kickoffTs, moments }: { kickoffTs: number; moments: Momen
 
   const hasResult = moments.some(m => m.kind === 'RESULT');
 
-  if (hasResult) return <span style={{ color: '#555', fontSize: 9 }}>FT</span>;
-  if (diff <= 0) return <span style={{ color: '#fff', fontSize: 9 }}>● LIVE</span>;
+  if (hasResult) return <span style={{ color: '#444', fontSize: 9, letterSpacing: 1 }}>ENDED</span>;
+  if (diff <= 0) return <span style={{ color: '#fff', fontSize: 9, letterSpacing: 1 }}>● LIVE</span>;
 
   const h = Math.floor(diff / 3600);
   const m = Math.floor((diff % 3600) / 60);
-  const s = diff % 60;
-  const label = h >= 24
-    ? new Date(kickoffTs * 1000).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', hour12: false })
-    : h > 0 ? `${h}h ${m}m` : `${m}m ${s}s`;
-  return <span style={{ color: '#555', fontSize: 9 }}>{label}</span>;
+  const days = Math.floor(h / 24);
+  const label = days >= 1 ? `${days}d ${h % 24}h` : h > 0 ? `${h}h ${m}m` : `${m}m`;
+  return <span style={{ color: '#555', fontSize: 9, letterSpacing: 1 }}>{label}</span>;
 }
 
 function Score({ moments }: { moments: Moment[] }) {
   const last = [...moments].sort((a, b) => b.seq - a.seq)[0];
   if (!last) return null;
   return (
-    <span style={{ fontSize: 18, color: '#fff', letterSpacing: 2 }}>
+    <span style={{ fontSize: 13, color: '#fff', letterSpacing: 2 }}>
       {last.scoreP1} – {last.scoreP2}
     </span>
   );
@@ -88,11 +108,12 @@ export default function FeedPage() {
                   </span>
                 )}
               </div>
-              <div className="match-card-teams">
-                <span>{fixture.p1Name}</span>
-                <Score moments={fixture.moments} />
-                <span>{fixture.p2Name}</span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, flexWrap: 'wrap' }}>
+                <span>{flag(fixture.p1Name)} {fixture.p1Name}</span>
+                <span style={{ color: '#333' }}>vs</span>
+                <span>{flag(fixture.p2Name)} {fixture.p2Name}</span>
               </div>
+              <Score moments={fixture.moments} />
               <div className="match-card-footer">
                 {fixture.moments.length} moments
               </div>

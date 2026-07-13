@@ -14,3 +14,4 @@ keeper*.json
 *-keypair.json
 *.sqlite
 *.db
+.vercel
