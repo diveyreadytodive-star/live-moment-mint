@@ -12,7 +12,8 @@
 import 'dotenv/config';
 import fs from 'fs';
 import path from 'path';
-import EventSource from 'eventsource';
+// eslint-disable-next-line @typescript-eslint/no-require-imports, @typescript-eslint/no-explicit-any
+const EventSource = require('eventsource') as any;
 import { getGuestJwt } from '@momento/txline';
 
 const TXLINE_API_ORIGIN = process.env.TXLINE_API_ORIGIN ?? 'https://txline-dev.txodds.com';
@@ -47,9 +48,9 @@ async function main() {
     process.exit(0);
   };
 
-  es.onmessage = (raw) => {
+  es.onmessage = (raw: any) => {
     let json: unknown;
-    try { json = JSON.parse(raw.data); } catch { return; }
+    try { json = JSON.parse(raw.data as string); } catch { return; }
 
     const line = JSON.stringify(json);
     out.write(line + '\n');
@@ -60,7 +61,7 @@ async function main() {
     if (count >= MAX_EVENTS) stop();
   };
 
-  es.onerror = (err) => {
+  es.onerror = (err: Event) => {
     console.error('[capture] SSE error:', err);
   };
 

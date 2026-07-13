@@ -57,4 +57,7 @@ model Mint {
   createdAt    Int
 
   moment       Moment @relation(fields: [momentId], references: [id])
+
+  @@unique([txSig])                  // replay guard — same tx can't mint twice
+  @@unique([momentId, minterPubkey]) // per-wallet per-moment guard
 }

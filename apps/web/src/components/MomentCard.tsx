@@ -39,7 +39,8 @@ export function MomentCard({ moment, onMinted }: Props) {
     setMinting(true);
     setMintError(null);
     try {
-      let txSig: string;
+      // momentPda present → on-chain tx first; absent/FAILED → server-only
+      let txSig: string | undefined;
       if (moment.momentPda) {
         const ix = new TransactionInstruction({
           programId: PROGRAM_ID,
@@ -55,15 +56,18 @@ export function MomentCard({ moment, onMinted }: Props) {
         tx.feePayer = publicKey;
         txSig = await sendTransaction(tx, connection);
         await connection.confirmTransaction({ signature: txSig, blockhash, lastValidBlockHeight }, 'confirmed');
-      } else {
-        txSig = `offline-${Date.now()}`;
       }
-      await fetch('/api/mint', {
+
+      const res = await fetch('/api/mint', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ momentId: moment.id, minter: publicKey.toBase58(), txSig }),
       });
-      setMintTx(txSig);
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body.error ?? `mint failed (${res.status})`);
+      }
+      setMintTx(txSig ?? null);
       onMinted();
     } catch (err: any) {
       setMintError(err.message);

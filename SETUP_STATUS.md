@@ -122,10 +122,39 @@ solana program deploy target/sbpf-solana-solana/release/moment_mint.so \
 vercel env add KEEPER_PRIVATE_KEY  # paste contents of devnet-keeper.json
 ```
 
-## P1 — Live Event Schema
+## P1 — Live Event Schema (2026-07-13)
 
-Schema verified against real devnet data (FixtureId 18222446, July 2026). PascalCase confirmed correct.
-Capture script added: `pnpm --filter keeper capture` → `captured-events.jsonl`
+Schema in `packages/shared/src/schemas.ts` cross-validated against live `/api/scores/updates/18222446`.
+
+### Confirmed correct fields
+| Field | Real value | Schema | ✓ |
+|-------|-----------|--------|---|
+| `Action` | `"goal"` / `"game_finalised"` / `"action_discarded"` | `z.string().optional()` | ✓ |
+| `Confirmed` | `false` then `true` | `z.boolean().optional()` | ✓ |
+| `Participant` | `1` or `2` | `z.union([z.literal(1), z.literal(2)])` | ✓ |
+| `StatusId` | `2` (H1), `3` (HT), `4` (H2), `100` (FT) | `z.number().optional()` | ✓ |
+| `Clock.Running` | boolean | ClockSchema | ✓ |
+| `Clock.Seconds` | number | ClockSchema | ✓ |
+| `Score.ParticipantX.Total.Goals` | number | ScoreParticipantSchema | ✓ |
+| `Data.GoalType` | `"Head"` / `"Foot"` / `"Penalty"` / `"OwnGoal"` | GoalDataSchema | ✓ |
+| `FixtureId` | number (18222446) | `z.union([z.string(), z.number()]).transform(String)` | ✓ |
+
+### Extra real fields not in strict schema (handled by `.passthrough()`)
+`GameState`, `IsTeam`, `FixtureGroupId`, `CountryId`, `SportId`, `CoverageSecondaryData`,
+`CoverageType`, `Id`, `ConnectionId`, `Stats`, `PlayerStats`, `Kickoff`, `Possession`,
+`PossessionType`, `Parti1State`, `Parti2State`
+
+### Note: inner Score sub-objects strip extra stats fields
+Real data has `H1: { Goals: 1, Corners: 2 }` etc. — `Corners`, `YellowCards`, `RedCards` stripped
+by non-passthrough inner zod objects. Only `Goals` matters for keeper logic → **no impact**.
+
+### Capture script
+```bash
+# Requires env vars from root .env:
+source .env && export TXLINE_API_ORIGIN TXLINE_API_TOKEN
+CAPTURE_MAX=10 CAPTURE_TIMEOUT_MS=60000 pnpm --filter keeper exec ts-node src/scripts/capture.ts
+```
+SSE stream is quiet when no live matches. Use `/api/scores/updates/<fixtureId>` for historical replay.
 
 ## P2 — Metadata/Image Reachability
 
@@ -139,7 +168,61 @@ DATABASE_URL=<neon_url> npx prisma db push
 # or run: prisma/migrations/0002_add_moment_fields/migration.sql
 ```
 
+## Tasks 1/2/4 — Mint API Hardening (2026-07-13)
+
+### Task 1 — Duplicate mint prevention
+- `Mint` model: `@@unique([txSig])` + `@@unique([momentId, minterPubkey])`
+- `/api/mint`: `findFirst` check before `mintCoreAsset` to avoid burning SOL/rent on dupes
+- Race condition catch: P2002 error → 409 response
+
+### Task 2 — On-chain fallback when window creation failed
+- Policy: if `moment.momentPda` is null OR `moment.onchainStatus === 'FAILED'`, skip on-chain step
+- `MomentCard.tsx`: only builds + sends on-chain tx when `moment.momentPda` is set
+- Server validates time window from DB regardless of on-chain status
+
+### Task 4 — Prisma connection singleton
+- `apps/web/src/lib/db.ts`: globalThis singleton to prevent connection exhaustion on Vercel
+- All routes import `{ db }` from `@/lib/db`
+
+### Architecture (current)
+```
+TxLINE SSE
+    ↓
+Keeper (parser.ts)
+    ↓
+mintWindow.ts → Neon DB (Moment row, imageData BYTEA, metadataJson TEXT)
+              → onchain.ts → Solana (Moment PDA, if SOL available)
+              → POST /api/feed (SSE push to web clients)
+
+Client
+    ↓ (if momentPda set)
+  mint_moment ix → Solana devnet
+    ↓ (txSig)
+POST /api/mint
+    ↓
+  verifyTx (if momentPda) → UMI createV1 → Metaplex Core Asset
+    ↓
+  Mint row (assetId, minterPubkey, txSig)
+```
+
 ## Ancillary
 
 - `onchainStatus` field added to Moment (`null` | `'OK'` | `'FAILED'`) — keeper logs FAILED clearly
 - RESULT `|| StatusId===100` guard left as-is (devnet-verified, no observed false positives)
+
+## DB Migration (Task 6)
+
+Run once against Neon to apply schema changes:
+```bash
+# Option A — prisma db push (idempotent)
+DATABASE_URL=<neon_url> npx prisma db push
+
+# Option B — manual SQL
+psql $DATABASE_URL -f prisma/migrations/0002_add_moment_fields/migration.sql
+```
+
+Migration adds:
+- `Moment.onchainStatus TEXT`
+- `Moment.imageData BYTEA`
+- `Moment.metadataJson TEXT`
+- `Mint` unique constraints on `txSig` and `(momentId, minterPubkey)`
