@@ -7,7 +7,7 @@ PASS: Postgres reachable
 PASS: DB reset
 
 [4] Starting web server...
-PASS: Web server ready (pid=35083)
+PASS: Web server ready (pid=66942)
 
 [5] Running keeper replay...
 PASS: Replay complete
@@ -36,40 +36,40 @@ Minter     : CSrPnu3y3vUeRPpJmsVukXyDZbHKLw7sFyweSubj97ve
 RPC        : https://api.devnet.solana.com
 
 [1] Fetching moment...
-    kind=RESULT status=OPEN closeTs=1784004729
+    kind=RESULT status=OPEN closeTs=1784049507
     momentPda=(none — DB-only path)
 
 [2] No momentPda → skipping on-chain tx (DB-only path)
 
 [3] POST http://localhost:3000/api/mint ...
     HTTP 200
-    body: {"mint":{"id":1,"momentId":4,"minterPubkey":"CSrPnu3y3vUeRPpJmsVukXyDZbHKLw7sFyweSubj97ve","assetId":"HEu9xccG9m6dUcWMpj7iz7Gk4GjXiFjCw78taa6fNkLG","txSig":"no-tx-1784004147692","createdAt":1784004134},"assetId":"HEu9xccG9m6dUcWMpj7iz7Gk4GjXiFjCw78taa6fNkLG"}
+    body: {"mint":{"id":1,"momentId":4,"minterPubkey":"CSrPnu3y3vUeRPpJmsVukXyDZbHKLw7sFyweSubj97ve","assetId":"E89UG8zamyktDyXCg5KAJuHFq8cMxv23N1PRbZ1AnGae","txSig":"no-tx-1784048942240","createdAt":1784048940},"assetId":"E89UG8zamyktDyXCg5KAJuHFq8cMxv23N1PRbZ1AnGae"}
 
-    assetId: HEu9xccG9m6dUcWMpj7iz7Gk4GjXiFjCw78taa6fNkLG
+    assetId: E89UG8zamyktDyXCg5KAJuHFq8cMxv23N1PRbZ1AnGae
 
 [4] Verifying asset on Solana devnet...
-    FOUND on-chain: HEu9xccG9m6dUcWMpj7iz7Gk4GjXiFjCw78taa6fNkLG
+    FOUND on-chain: E89UG8zamyktDyXCg5KAJuHFq8cMxv23N1PRbZ1AnGae
     owner: CoREENxT6tW1HoK8ypY1SxRMZTcVPm7R94rH4PZNhX7d
     data length: 136 bytes
 
-    explorer: https://explorer.solana.com/address/HEu9xccG9m6dUcWMpj7iz7Gk4GjXiFjCw78taa6fNkLG?cluster=devnet
+    explorer: https://explorer.solana.com/address/E89UG8zamyktDyXCg5KAJuHFq8cMxv23N1PRbZ1AnGae?cluster=devnet
 
 [5] Duplicate mint check (same request again)...
     HTTP 409
-    body: {"error":"Already minted","mint":{"id":1,"momentId":4,"minterPubkey":"CSrPnu3y3vUeRPpJmsVukXyDZbHKLw7sFyweSubj97ve","assetId":"HEu9xccG9m6dUcWMpj7iz7Gk4GjXiFjCw78taa6fNkLG","txSig":"no-tx-1784004147692","createdAt":1784004134}}
+    body: {"error":"Already minted","mint":{"id":1,"momentId":4,"minterPubkey":"CSrPnu3y3vUeRPpJmsVukXyDZbHKLw7sFyweSubj97ve","assetId":"E89UG8zamyktDyXCg5KAJuHFq8cMxv23N1PRbZ1AnGae","txSig":"no-tx-1784048942240","createdAt":1784048940}}
     PASS: duplicate correctly rejected with 409
 
 === E2E Result ===
-NFT asset    : https://explorer.solana.com/address/HEu9xccG9m6dUcWMpj7iz7Gk4GjXiFjCw78taa6fNkLG?cluster=devnet
+NFT asset    : https://explorer.solana.com/address/E89UG8zamyktDyXCg5KAJuHFq8cMxv23N1PRbZ1AnGae?cluster=devnet
 dedup (409)  : PASS
 
 Happy path complete.
 
 PASS: E2E mint complete.
-  NFT asset : https://explorer.solana.com/address/HEu9xccG9m6dUcWMpj7iz7Gk4GjXiFjCw78taa6fNkLG?cluster=devnet
+  NFT asset : https://explorer.solana.com/address/E89UG8zamyktDyXCg5KAJuHFq8cMxv23N1PRbZ1AnGae?cluster=devnet
 
 [12] Collection check (/api/mints?wallet=...)...
 PASS: /api/mints returned 1 mint(s) for wallet
 
 === ALL CHECKS PASSED ===
-Minted NFT: https://explorer.solana.com/address/HEu9xccG9m6dUcWMpj7iz7Gk4GjXiFjCw78taa6fNkLG?cluster=devnet
+Minted NFT: https://explorer.solana.com/address/E89UG8zamyktDyXCg5KAJuHFq8cMxv23N1PRbZ1AnGae?cluster=devnet
