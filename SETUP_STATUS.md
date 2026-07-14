@@ -91,6 +91,39 @@ anchor test --skip-local-validator
 
 ---
 
+## Verified Mint — 2026-07-14
+
+### Smoke Test: ALL 12 CHECKS PASSED
+
+| Field | Value |
+|-------|-------|
+| NFT Asset | `HEu9xccG9m6dUcWMpj7iz7Gk4GjXiFjCw78taa6fNkLG` |
+| Owner (program) | `CoREENxT6tW1HoK8ypY1SxRMZTcVPm7R94rH4PZNhX7d` (mpl-core) |
+| Data length | 136 bytes |
+| Devnet Explorer | https://explorer.solana.com/address/HEu9xccG9m6dUcWMpj7iz7Gk4GjXiFjCw78taa6fNkLG?cluster=devnet |
+| Minter wallet | `CSrPnu3y3vUeRPpJmsVukXyDZbHKLw7sFyweSubj97ve` |
+| Dedup (409) | PASS |
+| Full smoke log | `docs/smoke-run.log` |
+
+### Production Mint (Vercel → Neon → devnet)
+
+| Field | Value |
+|-------|-------|
+| NFT Asset | `2F9T54fj8FxVCbahVL2W794GrXr4vn5kNEkhELp9ymdH` |
+| Owner (program) | `CoREENxT6tW1HoK8ypY1SxRMZTcVPm7R94rH4PZNhX7d` (mpl-core) |
+| Data length | 159 bytes |
+| Devnet Explorer | https://explorer.solana.com/address/2F9T54fj8FxVCbahVL2W794GrXr4vn5kNEkhELp9ymdH?cluster=devnet |
+| Deployed app | https://live-moment-mint.vercel.app |
+| Dedup (409) | PASS |
+
+### Security Note
+TxLINE API token and GitHub PAT were exposed in git history (commits `299ea17`, `83518e5`).
+**Both tokens must be re-issued** — hardcoded values removed from working tree as of commit `6ef0564`.
+Git history scrub (force-push via `git filter-repo`) is available on request but token rotation
+is sufficient to neutralize the exposure.
+
+---
+
 ## P0 — Real NFT Minting (2026-07-13)
 
 ### Decision: Server-side Metaplex Core minting

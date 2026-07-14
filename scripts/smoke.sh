@@ -25,7 +25,8 @@ set +a
 
 # ── Non-secret defaults (can be overridden via .env.local.dev) ────────────
 export MOMENTO_PROGRAM_ID="${MOMENTO_PROGRAM_ID:-CL6e7FZkgQ6GLwYbmcsz4kwi2hZzzWoP7ckWgSbvF7ja}"
-export KEEPER_WALLET_PATH="${KEEPER_WALLET_PATH:-../../devnet-keeper.json}"
+# Always use absolute path so keeper (running in apps/keeper/) resolves correctly
+export KEEPER_WALLET_PATH="$ROOT/devnet-keeper.json"
 export PUBLIC_BASE_URL="${PUBLIC_BASE_URL:-http://localhost:3000}"
 export NEXT_PUBLIC_MOMENTO_PROGRAM_ID="$MOMENTO_PROGRAM_ID"
 
