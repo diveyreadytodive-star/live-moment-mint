@@ -10,7 +10,7 @@ import { TxLineClient, createScoresStream, getGuestJwt } from '@momento/txline';
 import type { TxLineSseEvent } from '@momento/shared';
 import { parseEvent, isVarCancel } from './parser';
 import { resolveFixture, seedFixture } from './resolve';
-import { openGoalWindow, openResultWindow, voidMoment } from './mintWindow';
+import { openGoalWindow, openResultWindow, voidMoment, updateFixtureScore } from './mintWindow';
 import { replay, DEMO_EVENTS } from './replay';
 
 const {
@@ -58,6 +58,14 @@ async function main() {
 
   const handleEvent = async (raw: TxLineSseEvent) => {
     try {
+      // Always upsert live score for every event that carries score data
+      if (raw.Score && raw.StatusId !== undefined) {
+        const sp1 = raw.Score.Participant1?.Total?.Goals ?? 0;
+        const sp2 = raw.Score.Participant2?.Total?.Goals ?? 0;
+        const minute = raw.Clock?.Seconds != null ? Math.floor(raw.Clock.Seconds / 60) : null;
+        await updateFixtureScore(db, raw.FixtureId, sp1, sp2, minute, raw.StatusId);
+      }
+
       if (isVarCancel(raw)) {
         await voidMoment(db, raw.FixtureId, raw.Seq);
         return;

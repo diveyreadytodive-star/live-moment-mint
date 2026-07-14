@@ -8,15 +8,21 @@ datasource db {
 }
 
 model Fixture {
-  id        String   @id
-  p1Id      String
-  p2Id      String
-  p1Name    String
-  p2Name    String
-  p1IsHome  Boolean
-  p1Color   String   @default("#1a56db")
-  p2Color   String   @default("#e02424")
-  kickoffTs Int
+  id           String   @id
+  p1Id         String
+  p2Id         String
+  p1Name       String
+  p2Name       String
+  p1IsHome     Boolean
+  p1Color      String   @default("#1a56db")
+  p2Color      String   @default("#e02424")
+  kickoffTs    Int
+  // Live score fields — updated by keeper on every SSE event
+  isLive       Boolean  @default(false)
+  liveScoreP1  Int?
+  liveScoreP2  Int?
+  liveMinute   Int?
+  statusId     Int?
 
   moments   Moment[]
 }

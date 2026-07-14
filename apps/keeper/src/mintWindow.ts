@@ -261,6 +261,26 @@ export async function openResultWindow(
   return moment.id as number;
 }
 
+/** Update a fixture's live score fields from any SSE event that carries score data. */
+export async function updateFixtureScore(
+  db: PrismaClient,
+  fixtureId: string,
+  scoreP1: number,
+  scoreP2: number,
+  minute: number | null,
+  statusId: number,
+): Promise<void> {
+  const isLive = statusId === 2 || statusId === 4; // H1=2, H2=4; HT=3 and FT=100 are not live
+  try {
+    await (db as any).fixture.updateMany({
+      where: { id: fixtureId },
+      data: { liveScoreP1: scoreP1, liveScoreP2: scoreP2, liveMinute: minute, statusId, isLive },
+    });
+  } catch {
+    // fixture may not exist yet; ignore
+  }
+}
+
 export async function voidMoment(db: PrismaClient, fixtureId: string, seq: number) {
   await (db as any).moment.updateMany({
     where: { fixtureId, seq },

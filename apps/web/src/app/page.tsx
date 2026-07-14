@@ -1,129 +1,207 @@
 'use client';
 
 import { useEffect, useState, useCallback } from 'react';
-import type { Moment } from '@momento/shared';
 
-interface Fixture {
+const FLAG: Record<string, string> = {
+  Argentina: '🇦🇷', Switzerland: '🇨🇭', France: '🇫🇷', Spain: '🇪🇸',
+  England: '🏴󠁧󠁢󠁥󠁮󠁧󠁿', Brazil: '🇧🇷', Germany: '🇩🇪', Portugal: '🇵🇹',
+  Netherlands: '🇳🇱', Italy: '🇮🇹', USA: '🇺🇸', Mexico: '🇲🇽',
+  Canada: '🇨🇦', Japan: '🇯🇵', 'South Korea': '🇰🇷', Morocco: '🇲🇦',
+  Croatia: '🇭🇷', Belgium: '🇧🇪', Denmark: '🇩🇰', Serbia: '🇷🇸',
+  Poland: '🇵🇱', Australia: '🇦🇺', Ghana: '🇬🇭', Senegal: '🇸🇳',
+  Uruguay: '🇺🇾', Colombia: '🇨🇴', Ecuador: '🇪🇨', Chile: '🇨🇱',
+  'Saudi Arabia': '🇸🇦', Iran: '🇮🇷', Wales: '🏴󠁧󠁢󠁷󠁬󠁳󠁿', Scotland: '🏴󠁧󠁢󠁳󠁣󠁴󠁿',
+  Turkey: '🇹🇷', Ukraine: '🇺🇦', Austria: '🇦🇹', Hungary: '🇭🇺',
+  Qatar: '🇶🇦', Nigeria: '🇳🇬', Cameroon: '🇨🇲', Tunisia: '🇹🇳',
+  Egypt: '🇪🇬', Algeria: '🇩🇿', 'Ivory Coast': '🇨🇮', 'South Africa': '🇿🇦',
+  China: '🇨🇳', Indonesia: '🇮🇩', Thailand: '🇹🇭', Vietnam: '🇻🇳',
+  'New Zealand': '🇳🇿', 'Costa Rica': '🇨🇷', Panama: '🇵🇦',
+};
+const flag = (name: string) => FLAG[name] ?? '🏳';
+
+interface MomentSummary {
+  id: number;
+  kind: string;
+  status: string;
+  closeTs: number;
+  scoreP1: number;
+  scoreP2: number;
+  minute?: number;
+  _count?: { mints: number };
+}
+
+interface FixtureAPI {
   id: string;
   p1Name: string;
   p2Name: string;
   kickoffTs: number;
-  moments: Moment[];
+  isLive: boolean;
+  liveScoreP1: number | null;
+  liveScoreP2: number | null;
+  liveMinute: number | null;
+  statusId: number | null;
+  moments: MomentSummary[];
 }
 
-const FLAG: Record<string, string> = {
-  'France': '🇫🇷', 'Spain': '🇪🇸', 'England': '🏴󠁧󠁢󠁥󠁮󠁧󠁿', 'Argentina': '🇦🇷',
-  'Brazil': '🇧🇷', 'Germany': '🇩🇪', 'Portugal': '🇵🇹', 'Netherlands': '🇳🇱',
-  'Italy': '🇮🇹', 'USA': '🇺🇸', 'Mexico': '🇲🇽', 'Canada': '🇨🇦',
-  'Japan': '🇯🇵', 'South Korea': '🇰🇷', 'Morocco': '🇲🇦', 'Switzerland': '🇨🇭',
-  'Croatia': '🇭🇷', 'Belgium': '🇧🇪', 'Denmark': '🇩🇰', 'Serbia': '🇷🇸',
-  'Poland': '🇵🇱', 'Australia': '🇦🇺', 'Ghana': '🇬🇭', 'Senegal': '🇸🇳',
-  'Uruguay': '🇺🇾', 'Colombia': '🇨🇴', 'Ecuador': '🇪🇨', 'Chile': '🇨🇱',
-  'Saudi Arabia': '🇸🇦', 'Iran': '🇮🇷', 'Wales': '🏴󠁧󠁢󠁷󠁬󠁳󠁿', 'Scotland': '🏴󠁧󠁢󠁳󠁣󠁴󠁿',
-  'Turkey': '🇹🇷', 'Ukraine': '🇺🇦', 'Austria': '🇦🇹', 'Hungary': '🇭🇺',
-  'New Zealand': '🇳🇿', 'Costa Rica': '🇨🇷', 'Panama': '🇵🇦', 'Honduras': '🇭🇳',
-  'Paraguay': '🇵🇾', 'Bolivia': '🇧🇴', 'Peru': '🇵🇪', 'Venezuela': '🇻🇪',
-  'Nigeria': '🇳🇬', 'Cameroon': '🇨🇲', 'Tunisia': '🇹🇳', 'Egypt': '🇪🇬',
-  'Algeria': '🇩🇿', 'Mali': '🇲🇱', 'Ivory Coast': '🇨🇮', 'Congo': '🇨🇩',
-  'South Africa': '🇿🇦', 'Kenya': '🇰🇪', 'Qatar': '🇶🇦', 'UAE': '🇦🇪',
-  'China': '🇨🇳', 'Indonesia': '🇮🇩', 'Thailand': '🇹🇭', 'Vietnam': '🇻🇳',
-};
-
-function flag(name: string) {
-  return FLAG[name] ?? '🏳';
+function fmtTime(ts: number) {
+  return new Date(ts * 1000).toLocaleTimeString('en-GB', {
+    hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Seoul',
+  });
+}
+function fmtDate(ts: number) {
+  return new Date(ts * 1000).toLocaleDateString('en-GB', {
+    day: 'numeric', month: 'short', timeZone: 'Asia/Seoul',
+  });
 }
 
-function MatchStatus({ kickoffTs, moments }: { kickoffTs: number; moments: Moment[] }) {
-  const [diff, setDiff] = useState(kickoffTs - Math.floor(Date.now() / 1000));
-  useEffect(() => {
-    const t = setInterval(() => setDiff(kickoffTs - Math.floor(Date.now() / 1000)), 1000);
-    return () => clearInterval(t);
-  }, [kickoffTs]);
-
-  const hasResult = moments.some(m => m.kind === 'RESULT');
-
-  if (hasResult) return <span style={{ color: '#444', fontSize: 9, letterSpacing: 1 }}>ENDED</span>;
-  if (diff <= 0) return <span style={{ color: '#fff', fontSize: 9, letterSpacing: 1 }}>● LIVE</span>;
-
-  const h = Math.floor(diff / 3600);
-  const m = Math.floor((diff % 3600) / 60);
-  const days = Math.floor(h / 24);
-  const label = days >= 1 ? `${days}d ${h % 24}h` : h > 0 ? `${h}h ${m}m` : `${m}m`;
-  return <span style={{ color: '#555', fontSize: 9, letterSpacing: 1 }}>{label}</span>;
+function isEnded(f: FixtureAPI) {
+  return (f.statusId ?? 0) >= 100 || f.moments.some(m => m.kind === 'RESULT');
 }
 
-function Score({ moments }: { moments: Moment[] }) {
-  const last = [...moments].sort((a, b) => b.seq - a.seq)[0];
-  if (!last) return null;
+interface MatchRowProps {
+  fixture: FixtureAPI;
+  now: number;
+}
+
+function MatchRow({ fixture, now }: MatchRowProps) {
+  const ended = isEnded(fixture);
+  const openCount = fixture.moments.filter(m => m.status === 'OPEN' && m.closeTs > now).length;
+
+  const scoreP1 = fixture.isLive
+    ? (fixture.liveScoreP1 ?? 0)
+    : fixture.moments.length
+      ? Math.max(...fixture.moments.map(m => m.scoreP1))
+      : null;
+  const scoreP2 = fixture.isLive
+    ? (fixture.liveScoreP2 ?? 0)
+    : fixture.moments.length
+      ? Math.max(...fixture.moments.map(m => m.scoreP2))
+      : null;
+
+  const p1Wins = scoreP1 !== null && scoreP2 !== null && scoreP1 > scoreP2;
+  const p2Wins = scoreP1 !== null && scoreP2 !== null && scoreP2 > scoreP1;
+
   return (
-    <span style={{ fontSize: 13, color: '#fff', letterSpacing: 2 }}>
-      {last.scoreP1} – {last.scoreP2}
-    </span>
+    <a href={`/match/${fixture.id}`} className="match-row" style={{ display: 'grid' }}>
+      <div className="match-row-teams">
+        <div className={`match-row-team ${ended && p1Wins ? 'winner' : ended && p2Wins ? 'loser' : ''}`}>
+          <span className="flag">{flag(fixture.p1Name)}</span>
+          <span className="name">{fixture.p1Name}</span>
+        </div>
+        <div className={`match-row-team ${ended && p2Wins ? 'winner' : ended && p1Wins ? 'loser' : ''}`}>
+          <span className="flag">{flag(fixture.p2Name)}</span>
+          <span className="name">{fixture.p2Name}</span>
+        </div>
+      </div>
+
+      <div className="match-row-scores">
+        {scoreP1 !== null ? (
+          <>
+            <span className={`score-n ${ended && p1Wins ? 'winner' : ended && p2Wins ? 'loser' : ''}`}>{scoreP1}</span>
+            <span className={`score-n ${ended && p2Wins ? 'winner' : ended && p1Wins ? 'loser' : ''}`}>{scoreP2}</span>
+          </>
+        ) : (
+          <>
+            <span className="score-n dash">–</span>
+            <span className="score-n dash">–</span>
+          </>
+        )}
+      </div>
+
+      <div className="match-row-right">
+        {fixture.isLive ? (
+          <>
+            <span className="status-live">● LIVE</span>
+            {fixture.liveMinute !== null && (
+              <span className="status-minute">{fixture.liveMinute}'</span>
+            )}
+          </>
+        ) : ended ? (
+          <span className="status-ended">FT</span>
+        ) : fixture.kickoffTs > now ? (
+          <>
+            <span className="status-kickoff">{fmtTime(fixture.kickoffTs)}</span>
+            <span style={{ fontSize: 9, color: 'var(--text3)' }}>{fmtDate(fixture.kickoffTs)}</span>
+          </>
+        ) : (
+          <span className="status-kickoff">{fmtTime(fixture.kickoffTs)}</span>
+        )}
+        {openCount > 0 && (
+          <span className="open-pill">{openCount} OPEN</span>
+        )}
+      </div>
+    </a>
   );
 }
 
 export default function FeedPage() {
-  const [fixtures, setFixtures] = useState<Fixture[]>([]);
+  const [fixtures, setFixtures] = useState<FixtureAPI[]>([]);
   const [loading, setLoading] = useState(true);
+  const [now, setNow] = useState(Math.floor(Date.now() / 1000));
 
   const fetchAll = useCallback(async () => {
     try {
       const res = await fetch('/api/fixtures');
-      setFixtures(await res.json());
+      if (res.ok) setFixtures(await res.json());
     } catch {}
     finally { setLoading(false); }
   }, []);
 
   useEffect(() => {
     fetchAll();
+    const poll = setInterval(fetchAll, 5000);
+    const tick = setInterval(() => setNow(Math.floor(Date.now() / 1000)), 1000);
     const es = new EventSource('/api/feed');
     es.onmessage = (raw) => {
-      try {
-        const msg = JSON.parse(raw.data);
-        if (msg.type === 'MOMENT_OPENED') fetchAll();
-      } catch {}
+      try { if (JSON.parse(raw.data).type === 'MOMENT_OPENED') fetchAll(); } catch {}
     };
-    return () => es.close();
+    return () => { clearInterval(poll); clearInterval(tick); es.close(); };
   }, [fetchAll]);
 
-  if (loading) return <p style={{ color: '#333' }}>—</p>;
+  if (loading) return <div className="empty-state">Loading...</div>;
 
-  const sorted = [...fixtures].sort((a, b) => a.kickoffTs - b.kickoffTs);
+  const live     = fixtures.filter(f => f.isLive);
+  const ended    = fixtures.filter(f => !f.isLive && isEnded(f));
+  const upcoming = fixtures.filter(f => !f.isLive && !isEnded(f));
+
+  const hasAny = fixtures.length > 0;
 
   return (
     <div>
-      <p style={{ color: '#444', fontSize: 10, marginBottom: 24, letterSpacing: 1 }}>
-        WORLD CUP 2026
+      <p style={{ fontSize: 10, fontWeight: 700, letterSpacing: 3, color: 'var(--text3)', marginBottom: 28, textTransform: 'uppercase' }}>
+        World Cup 2026
       </p>
-      <div className="match-scroll">
-        {sorted.map(fixture => {
-          const openMoments = fixture.moments.filter(m => m.status === 'OPEN' && m.closeTs > Math.floor(Date.now() / 1000));
-          return (
-            <a key={fixture.id} href={`/match/${fixture.id}`} className="match-card">
-              <div className="match-card-status">
-                <MatchStatus kickoffTs={fixture.kickoffTs} moments={fixture.moments} />
-                {openMoments.length > 0 && (
-                  <span style={{ color: '#fff', fontSize: 9, marginLeft: 8 }}>
-                    {openMoments.length} OPEN
-                  </span>
-                )}
-              </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, flexWrap: 'wrap' }}>
-                <span>{flag(fixture.p1Name)} {fixture.p1Name}</span>
-                <span style={{ color: '#333' }}>vs</span>
-                <span>{flag(fixture.p2Name)} {fixture.p2Name}</span>
-              </div>
-              <Score moments={fixture.moments} />
-              <div className="match-card-footer">
-                {fixture.moments.length} moments
-              </div>
-            </a>
-          );
-        })}
-        {sorted.length === 0 && (
-          <p style={{ color: '#333' }}>no fixtures</p>
-        )}
-      </div>
+
+      {/* LIVE */}
+      {live.length > 0 && (
+        <div className="match-section">
+          <div className="section-head live">
+            <span className="live-dot" />
+            Live
+          </div>
+          {live.map(f => <MatchRow key={f.id} fixture={f} now={now} />)}
+        </div>
+      )}
+
+      {/* UPCOMING */}
+      {upcoming.length > 0 && (
+        <div className="match-section">
+          <div className="section-head">Upcoming</div>
+          {upcoming.map(f => <MatchRow key={f.id} fixture={f} now={now} />)}
+        </div>
+      )}
+
+      {/* ENDED */}
+      {ended.length > 0 && (
+        <div className="match-section">
+          <div className="section-head">Ended</div>
+          {ended.map(f => <MatchRow key={f.id} fixture={f} now={now} />)}
+        </div>
+      )}
+
+      {!hasAny && (
+        <div className="empty-state">No fixtures yet. Run the keeper in replay mode to demo.</div>
+      )}
     </div>
   );
 }

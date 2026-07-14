@@ -7,7 +7,7 @@ import { Transaction, TransactionInstruction, PublicKey } from '@solana/web3.js'
 import type { Moment } from '@momento/shared';
 
 interface Props {
-  moment: Moment;
+  moment: Moment & { _count?: { mints: number } };
   onMinted: () => void;
 }
 
@@ -21,6 +21,7 @@ export function MomentCard({ moment, onMinted }: Props) {
   const [minting, setMinting] = useState(false);
   const [mintError, setMintError] = useState<string | null>(null);
   const [mintTx, setMintTx] = useState<string | null>(null);
+  const [mintedAsset, setMintedAsset] = useState<string | null>(null);
 
   useEffect(() => {
     const update = () => setTimeLeft(Math.max(0, moment.closeTs - Math.floor(Date.now() / 1000)));
@@ -31,6 +32,7 @@ export function MomentCard({ moment, onMinted }: Props) {
 
   const isOpen = moment.status === 'OPEN' && timeLeft > 0;
   const isVoid = moment.status === 'VOID';
+  const mintCount = moment._count?.mints ?? 0;
 
   const fmt = (s: number) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
 
@@ -65,9 +67,11 @@ export function MomentCard({ moment, onMinted }: Props) {
       });
       if (!res.ok) {
         const body = await res.json().catch(() => ({}));
-        throw new Error(body.error ?? `mint failed (${res.status})`);
+        throw new Error((body as any).error ?? `mint failed (${res.status})`);
       }
+      const body = await res.json();
       setMintTx(txSig ?? null);
+      setMintedAsset(body.assetId ?? null);
       onMinted();
     } catch (err: any) {
       setMintError(err.message);
@@ -76,51 +80,76 @@ export function MomentCard({ moment, onMinted }: Props) {
     }
   };
 
-  const label = moment.kind === 'GOAL'
-    ? `GOAL ${moment.minute}'  ${moment.scoreP1}–${moment.scoreP2}`
-    : `FT  ${moment.scoreP1}–${moment.scoreP2}`;
+  const kindLabel = moment.kind === 'GOAL' ? 'GOAL' : 'FULL TIME';
+  const kindClass = isVoid ? 'void' : moment.kind === 'GOAL' ? 'goal' : 'result';
 
   return (
-    <div className="moment-card">
-      {moment.imageUrl && (
-        <img src={moment.imageUrl} alt={label} loading="lazy" />
+    <div className={`moment-card${isOpen ? ' open' : ''}`}>
+      {moment.imageUrl ? (
+        <img
+          src={moment.imageUrl}
+          alt={`${kindLabel} ${moment.scoreP1}–${moment.scoreP2}`}
+          className={`moment-card-img${!isOpen || isVoid ? ' dim' : ''}`}
+          loading="lazy"
+        />
+      ) : (
+        <div className="moment-card-img" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <span style={{ fontSize: 9, color: 'var(--text3)', letterSpacing: 1 }}>—</span>
+        </div>
       )}
+
       <div className="moment-card-body">
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-          <span style={{ fontSize: 10, color: isVoid ? '#444' : isOpen ? '#fff' : '#555', letterSpacing: 1 }}>
-            {isVoid ? 'VOID' : label}
-          </span>
-          {isOpen && (
-            <span className="countdown">{fmt(timeLeft)}</span>
-          )}
-          {!isOpen && !isVoid && (
-            <span style={{ fontSize: 9, color: '#444' }}>CLOSED</span>
-          )}
+        <div className={`moment-kind-badge ${kindClass}`}>
+          {isVoid ? 'VOIDED' : kindLabel}
         </div>
 
-        {isOpen && (
+        <div className="moment-score-big">
+          {moment.scoreP1}–{moment.scoreP2}
+        </div>
+
+        <div className="moment-meta-row">
+          <span>{moment.kind === 'GOAL' && moment.minute ? `${moment.minute}'` : ''}</span>
+          {mintCount > 0 && <span>{mintCount} collected</span>}
+        </div>
+
+        {isOpen && !mintedAsset && (
+          <div className={`moment-countdown${timeLeft < 60 ? ' urgent' : ''}`}>
+            {fmt(timeLeft)}
+          </div>
+        )}
+
+        {mintedAsset ? (
+          <a
+            href={`https://explorer.solana.com/address/${mintedAsset}?cluster=devnet`}
+            target="_blank"
+            rel="noreferrer"
+            className="mint-btn success"
+          >
+            ✓ MINTED
+          </a>
+        ) : isOpen && !isVoid ? (
           connected ? (
             <button className="mint-btn" onClick={handleMint} disabled={minting}>
-              {minting ? 'MINTING...' : 'MINT'}
+              {minting ? 'MINTING…' : 'MINT NOW'}
             </button>
           ) : (
-            <WalletMultiButton />
+            <WalletMultiButton style={{ width: '100%' }} />
           )
-        )}
+        ) : !isVoid ? (
+          <div style={{ fontSize: 10, color: 'var(--text3)', letterSpacing: 1.5, paddingTop: 2 }}>CLOSED</div>
+        ) : null}
 
         {mintTx && !mintTx.startsWith('offline-') && (
           <a
             href={`https://explorer.solana.com/tx/${mintTx}?cluster=devnet`}
             target="_blank"
             rel="noreferrer"
-            style={{ display: 'block', marginTop: 8, fontSize: 9, color: '#666' }}
+            className="explorer-link"
           >
-            ↗ explorer
+            ↗ View tx
           </a>
         )}
-        {mintError && (
-          <p style={{ color: '#666', fontSize: 9, marginTop: 6 }}>{mintError}</p>
-        )}
+        {mintError && <p className="error-text">{mintError}</p>}
       </div>
     </div>
   );

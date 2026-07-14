@@ -12,6 +12,7 @@ export async function GET() {
       moments: {
         orderBy: { tsEvent: 'desc' },
         take: 20,
+        include: { _count: { select: { mints: true } } },
       },
     },
   });
