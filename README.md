@@ -155,14 +155,29 @@ Full log: `docs/smoke-run.log`
 
 ---
 
+## UI
+
+| Page | Desktop | Mobile |
+|------|---------|--------|
+| Home feed | `docs/ui-home.png` | `docs/ui-home-mobile.png` |
+| Match detail | `docs/ui-match.png` | — |
+| Moment detail | `docs/ui-moment.png` | — |
+| Collection | `docs/ui-collection.png` | — |
+
+The home feed shows **Minting Now** (live drop cards with countdown) → Upcoming → Ended.
+Font: Archivo (Google Fonts). Theme: Top Shot dark (#070710 bg, #c9952a gold).
+
+---
+
 ## Verified Mints
 
 | Date | Asset | Environment | Explorer |
 |------|-------|-------------|----------|
 | 2026-07-14 | `HEu9xccG9m6dUcWMpj7iz7Gk4GjXiFjCw78taa6fNkLG` | Local | [devnet](https://explorer.solana.com/address/HEu9xccG9m6dUcWMpj7iz7Gk4GjXiFjCw78taa6fNkLG?cluster=devnet) |
 | 2026-07-14 | `2F9T54fj8FxVCbahVL2W794GrXr4vn5kNEkhELp9ymdH` | Production (Vercel) | [devnet](https://explorer.solana.com/address/2F9T54fj8FxVCbahVL2W794GrXr4vn5kNEkhELp9ymdH?cluster=devnet) |
+| 2026-07-16 | `84HFu6pEN4VT5W7o8gNGCFRBfM8fdj84DmhLPcKDgFuW` | Local (post-UI update) | [devnet](https://explorer.solana.com/address/84HFu6pEN4VT5W7o8gNGCFRBfM8fdj84DmhLPcKDgFuW?cluster=devnet) |
 
-Both assets: owner = `CoREENxT6tW1HoK8ypY1SxRMZTcVPm7R94rH4PZNhX7d` (mpl-core program)
+All assets: owner = `CoREENxT6tW1HoK8ypY1SxRMZTcVPm7R94rH4PZNhX7d` (mpl-core program)
 
 ---
 
@@ -201,5 +216,8 @@ live-moment-mint/
 ├── scripts/
 │   └── smoke.sh      Full E2E smoke test
 └── docs/
-    └── smoke-run.log Latest smoke test output
+    ├── smoke-run.log      Latest smoke test output
+    ├── demo-script.md     Step-by-step judging demo
+    ├── handoff.md         Fresh-repo setup for judges
+    └── ui-*.png           UI screenshots
 ```

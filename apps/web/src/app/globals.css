@@ -1,4 +1,6 @@
 /* Momento — Top Shot × FotMob */
+@import url('https://fonts.googleapis.com/css2?family=Archivo:ital,wght@0,400;0,500;0,600;0,700;0,800;0,900;1,400&display=swap');
+
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
 :root {
@@ -14,8 +16,8 @@
   --text2:     #8888b8;
   --text3:     #3d3d60;
   --live:      #22c55e;
-  --font:      -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-  --mono:      'SF Mono', 'Fira Mono', 'Courier New', monospace;
+  --font:      'Archivo', -apple-system, BlinkMacSystemFont, sans-serif;
+  --mono:      'Archivo', 'SF Mono', 'Fira Mono', monospace;
 }
 
 html { -webkit-tap-highlight-color: transparent; }
@@ -25,6 +27,8 @@ body {
   font-family: var(--font);
   font-size: 14px;
   line-height: 1.5;
+  font-variant-numeric: tabular-nums;
+  -webkit-font-smoothing: antialiased;
 }
 
 a { color: inherit; text-decoration: none; }
@@ -395,6 +399,7 @@ main { max-width: 860px; margin: 0 auto; padding: 28px 20px 64px; }
   margin: 12px 0;
   line-height: 1;
 }
+.moment-hero-countdown.urgent { color: #ef4444; }
 .moment-hero-collectors {
   font-size: 11px;
   color: var(--text2);
@@ -509,6 +514,72 @@ main { max-width: 860px; margin: 0 auto; padding: 28px 20px 64px; }
 .wallet-adapter-button-start-icon { display: none !important; }
 .wallet-adapter-modal-wrapper { font-family: var(--font) !important; }
 
+/* ── Drop cards (Minting Now) ── */
+.drops {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 10px;
+  padding: 14px 0 4px;
+}
+
+.drop-card {
+  background: var(--surface);
+  border: 1px solid var(--gold-dim);
+  overflow: hidden;
+  cursor: pointer;
+  transition: border-color 0.15s, transform 0.15s;
+  display: flex;
+  flex-direction: column;
+}
+.drop-card:hover { border-color: var(--gold); transform: translateY(-2px); }
+
+.drop-art {
+  width: 100%;
+  aspect-ratio: 4/3;
+  background: linear-gradient(135deg, #0d0d2e 0%, #1a1a4a 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+}
+.drop-art.result {
+  background: linear-gradient(135deg, #0d2210 0%, #1a3a1a 100%);
+}
+.drop-ball { font-size: 38px; line-height: 1; }
+
+.drop-body { padding: 10px 11px 11px; }
+.drop-mark {
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: var(--gold);
+  margin-bottom: 4px;
+}
+.drop-score {
+  font-size: 19px;
+  font-weight: 900;
+  font-family: var(--mono);
+  letter-spacing: 2px;
+  color: var(--text);
+  line-height: 1;
+  margin-bottom: 7px;
+}
+.drop-timer {
+  font-size: 12px;
+  font-weight: 700;
+  font-family: var(--mono);
+  color: var(--gold);
+  letter-spacing: 1px;
+  margin-bottom: 3px;
+}
+.drop-timer.urgent { color: #ef4444; }
+.drop-collected {
+  font-size: 9px;
+  color: var(--text3);
+  letter-spacing: 1px;
+}
+
 /* ── Responsive ── */
 @media (max-width: 600px) {
   main { padding: 16px 12px 48px; }
@@ -520,4 +591,5 @@ main { max-width: 860px; margin: 0 auto; padding: 28px 20px 64px; }
   .collection-grid { grid-template-columns: 1fr 1fr; }
   .moment-hero-score { font-size: 30px; letter-spacing: 4px; }
   .moment-hero-countdown { font-size: 24px; }
+  .drops { grid-template-columns: 1fr 1fr; }
 }

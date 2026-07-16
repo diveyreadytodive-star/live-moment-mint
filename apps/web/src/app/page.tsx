@@ -53,9 +53,49 @@ function fmtDate(ts: number) {
     day: 'numeric', month: 'short', timeZone: 'Asia/Seoul',
   });
 }
+function fmtCountdown(secs: number) {
+  if (secs <= 0) return '0:00';
+  const m = Math.floor(secs / 60);
+  const s = secs % 60;
+  return `${m}:${String(s).padStart(2, '0')}`;
+}
 
 function isEnded(f: FixtureAPI) {
   return (f.statusId ?? 0) >= 100 || f.moments.some(m => m.kind === 'RESULT');
+}
+
+interface OpenMoment extends MomentSummary {
+  fixtureId: string;
+  p1Name: string;
+  p2Name: string;
+}
+
+interface DropCardProps {
+  moment: OpenMoment;
+  now: number;
+}
+
+function DropCard({ moment, now }: DropCardProps) {
+  const secs = Math.max(0, moment.closeTs - now);
+  const urgent = secs < 60;
+  const isGoal = moment.kind === 'GOAL';
+  return (
+    <a href={`/moment/${moment.id}`} className="drop-card">
+      <div className={`drop-art${isGoal ? '' : ' result'}`}>
+        <div className="drop-ball">{isGoal ? '⚽' : '🏆'}</div>
+      </div>
+      <div className="drop-body">
+        <div className="drop-mark">
+          {isGoal ? `GOAL${moment.minute ? ` · ${moment.minute}'` : ''}` : 'FULL TIME'}
+        </div>
+        <div className="drop-score">{moment.scoreP1} – {moment.scoreP2}</div>
+        <div className={`drop-timer${urgent ? ' urgent' : ''}`}>{fmtCountdown(secs)}</div>
+        {(moment._count?.mints ?? 0) > 0 && (
+          <div className="drop-collected">{moment._count!.mints} collected</div>
+        )}
+      </div>
+    </a>
+  );
 }
 
 interface MatchRowProps {
@@ -164,6 +204,12 @@ export default function FeedPage() {
   const ended    = fixtures.filter(f => !f.isLive && isEnded(f));
   const upcoming = fixtures.filter(f => !f.isLive && !isEnded(f));
 
+  const openMoments: OpenMoment[] = fixtures.flatMap(f =>
+    f.moments
+      .filter(m => m.status === 'OPEN' && m.closeTs > now)
+      .map(m => ({ ...m, fixtureId: f.id, p1Name: f.p1Name, p2Name: f.p2Name }))
+  );
+
   const hasAny = fixtures.length > 0;
 
   return (
@@ -171,6 +217,19 @@ export default function FeedPage() {
       <p style={{ fontSize: 10, fontWeight: 700, letterSpacing: 3, color: 'var(--text3)', marginBottom: 28, textTransform: 'uppercase' }}>
         World Cup 2026
       </p>
+
+      {/* MINTING NOW */}
+      {openMoments.length > 0 && (
+        <div className="match-section">
+          <div className="section-head gold">
+            <span className="live-dot" style={{ background: 'var(--gold)', animationDuration: '1s' }} />
+            Minting now
+          </div>
+          <div className="drops">
+            {openMoments.map(m => <DropCard key={m.id} moment={m} now={now} />)}
+          </div>
+        </div>
+      )}
 
       {/* LIVE */}
       {live.length > 0 && (
