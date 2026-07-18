@@ -185,11 +185,18 @@ export async function POST(req: NextRequest) {
   // ── 서버사이드 NFT 발행 ───────────────────────────────────────────────
   let assetId: string;
   try {
-    const nftName =
-      moment.kind === 'GOAL'
-        ? `Momento Goal #${moment.id}`
-        : `Momento Result #${moment.id}`;
-    assetId = await mintCoreAsset(minter, moment.metadataUrl ?? '', nftName);
+    const nftName = moment.isPredictionReward
+      ? `Momento Oracle #${moment.id}`
+      : moment.kind === 'GOAL'
+      ? `Momento Goal #${moment.id}`
+      : `Momento Result #${moment.id}`;
+    // Derive metadata URI from env: PUBLIC_BASE_URL > VERCEL_URL (auto-set by Vercel) > fallback empty
+    const base = (
+      process.env.PUBLIC_BASE_URL ||
+      (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : '')
+    ).replace(/\/$/, '');
+    const metadataUri = `${base}/api/moments/${moment.id}/metadata`;
+    assetId = await mintCoreAsset(minter, metadataUri, nftName);
   } catch (err: any) {
     console.error('[mint] Server-side NFT creation failed:', err.message);
     return NextResponse.json(
