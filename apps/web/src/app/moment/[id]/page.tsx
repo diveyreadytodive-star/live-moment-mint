@@ -5,6 +5,7 @@ import { useParams } from 'next/navigation';
 import { useWallet, useConnection } from '@solana/wallet-adapter-react';
 import { WalletMultiButton } from '@solana/wallet-adapter-react-ui';
 import { Transaction, TransactionInstruction, PublicKey } from '@solana/web3.js';
+import bs58 from 'bs58';
 
 const PROGRAM_ID = new PublicKey('CL6e7FZkgQ6GLwYbmcsz4kwi2hZzzWoP7ckWgSbvF7ja');
 const MINT_DISCRIMINATOR = Buffer.from([157, 243, 211, 63, 10, 118, 217, 42]);
@@ -25,7 +26,7 @@ interface MomentDetail {
 
 export default function MomentPage() {
   const { id } = useParams();
-  const { publicKey, sendTransaction, connected } = useWallet();
+  const { publicKey, sendTransaction, signMessage, connected } = useWallet();
   const { connection } = useConnection();
 
   const [moment, setMoment] = useState<MomentDetail | null>(null);
@@ -56,6 +57,9 @@ export default function MomentPage() {
     setMintError(null);
     try {
       let txSig: string | undefined;
+      let messageSignature: string | undefined;
+      let messageTs: number | undefined;
+
       if (moment.momentPda) {
         const ix = new TransactionInstruction({
           programId: PROGRAM_ID,
@@ -71,11 +75,20 @@ export default function MomentPage() {
         tx.feePayer = publicKey;
         txSig = await sendTransaction(tx, connection);
         await connection.confirmTransaction({ signature: txSig, blockhash, lastValidBlockHeight }, 'confirmed');
+      } else {
+        if (!signMessage) {
+          throw new Error('이 지갑은 서명 인증을 지원하지 않습니다. Phantom 또는 Solflare를 사용하세요.');
+        }
+        messageTs = Math.floor(Date.now() / 1000);
+        const message = `Momento mint authorization\nmoment:${moment.id}\nwallet:${publicKey.toBase58()}\nts:${messageTs}`;
+        const sigBytes = await signMessage(new TextEncoder().encode(message));
+        messageSignature = bs58.encode(sigBytes);
       }
+
       const res = await fetch('/api/mint', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ momentId: moment.id, minter: publicKey.toBase58(), txSig }),
+        body: JSON.stringify({ momentId: moment.id, minter: publicKey.toBase58(), txSig, messageSignature, messageTs }),
       });
       if (!res.ok) {
         const body = await res.json().catch(() => ({}));
@@ -101,7 +114,7 @@ export default function MomentPage() {
   const collectors = moment.mints.length;
 
   return (
-    <div style={{ maxWidth: 580, margin: '0 auto' }}>
+    <div className="page-inner" style={{ maxWidth: 580 }}>
       <a href={`/match/${moment.fixtureId}`} className="back-link">← Match</a>
 
       {/* Hero image */}

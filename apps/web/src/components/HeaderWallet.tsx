@@ -1,6 +1,2 @@
 'use client';
-import { WalletMultiButton } from '@solana/wallet-adapter-react-ui';
-
-export function HeaderWallet() {
-  return <WalletMultiButton />;
-}
+export { ConnectWalletButton as HeaderWallet } from './ConnectWalletButton';

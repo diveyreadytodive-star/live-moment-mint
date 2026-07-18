@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "build": "tsc",
-    "dev": "ts-node --esm src/index.ts",
+    "dev": "ts-node src/index.ts",
     "start": "node dist/index.js",
     "subscribe": "ts-node src/scripts/subscribe.ts",
     "replay": "ts-node src/scripts/replay.ts",
@@ -12,21 +12,22 @@
     "e2e-mint": "ts-node src/scripts/e2e-mint.ts"
   },
   "devDependencies": {
-    "typescript": "*",
     "@types/node": "*",
-    "ts-node": "^10.9.0"
+    "ts-node": "^10.9.0",
+    "typescript": "*"
   },
   "dependencies": {
+    "@coral-xyz/anchor": "^0.30.0",
+    "@momento/image": "workspace:*",
     "@momento/shared": "workspace:*",
     "@momento/txline": "workspace:*",
-    "@momento/image": "workspace:*",
-    "@coral-xyz/anchor": "^0.30.0",
-    "@solana/web3.js": "^1.95.0",
     "@prisma/client": "^5.15.0",
-    "prisma": "^5.15.0",
-    "dotenv": "^16.4.0",
-    "axios": "^1.7.0",
     "@solana/spl-token": "^0.4.0",
+    "@solana/web3.js": "^1.95.0",
+    "axios": "^1.7.0",
+    "bs58": "^6.0.0",
+    "dotenv": "^16.4.0",
+    "prisma": "^5.15.0",
     "tweetnacl": "^1.0.3"
   }
 }

@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { Connection, Keypair } from '@solana/web3.js';
+import nacl from 'tweetnacl';
+import bs58 from 'bs58';
 
 export const dynamic = 'force-dynamic';
 
@@ -17,19 +19,44 @@ function loadKeeperKp(): Keypair | null {
   }
 }
 
-async function verifyTx(txSig: string): Promise<boolean> {
+/**
+ * Verifies that:
+ *  1. The transaction succeeded and called the Momento program.
+ *  2. minter is a signer in the transaction.
+ *  3. momentPda (when provided) appears in the transaction's account list.
+ */
+async function verifyTx(
+  txSig: string,
+  minter: string,
+  momentPda: string | null,
+): Promise<boolean> {
   try {
     const conn = new Connection(RPC, 'confirmed');
-    const tx = await conn.getTransaction(txSig, {
+    const tx = await conn.getParsedTransaction(txSig, {
       maxSupportedTransactionVersion: 0,
       commitment: 'confirmed',
     });
     if (!tx || tx.meta?.err) return false;
-    const keys =
-      tx.transaction.message.staticAccountKeys ??
-      (tx.transaction.message as any).accountKeys ??
-      [];
-    return keys.some((k: any) => k.toBase58?.() === PROGRAM_ID || k === PROGRAM_ID);
+
+    const accounts = tx.transaction.message.accountKeys;
+
+    // 1. Program must be in the account list
+    const hasProgram = accounts.some((k) => k.pubkey.toBase58() === PROGRAM_ID);
+    if (!hasProgram) return false;
+
+    // 2. minter must be an actual signer of this transaction
+    const minterIsSigner = accounts.some(
+      (k) => k.pubkey.toBase58() === minter && k.signer,
+    );
+    if (!minterIsSigner) return false;
+
+    // 3. momentPda must appear in the account list (proves this tx targeted this moment)
+    if (momentPda) {
+      const hasPda = accounts.some((k) => k.pubkey.toBase58() === momentPda);
+      if (!hasPda) return false;
+    }
+
+    return true;
   } catch {
     return false;
   }
@@ -65,7 +92,8 @@ async function mintCoreAsset(
 }
 
 export async function POST(req: NextRequest) {
-  const { momentId, minter, txSig } = await req.json();
+  const body = await req.json();
+  const { momentId, minter, txSig, messageSignature, messageTs } = body;
 
   if (!momentId || !minter) {
     return NextResponse.json({ error: 'Missing momentId or minter' }, { status: 400 });
@@ -79,7 +107,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Minting window is closed' }, { status: 409 });
   }
 
-  // ── 중복 방지 (작업 1) — mintCoreAsset 이전에 확인 ───────────────────
+  // ── 중복 방지 — mintCoreAsset 이전에 확인 ─────────────────────────────
   const dupCheck = await (db as any).mint.findFirst({
     where: {
       OR: [
@@ -92,9 +120,9 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Already minted', mint: dupCheck }, { status: 409 });
   }
 
-  // ── On-chain 검증 정책 (작업 2) ──────────────────────────────────────
-  // momentPda가 있고 on-chain window가 성공했으면 txSig 검증 필요.
-  // momentPda 없거나 onchainStatus='FAILED'면 DB 검증만으로 진행.
+  // ── 인증 정책 ───────────────────────────────────────────────────────────
+  // momentPda가 있고 onchainStatus가 FAILED가 아니면 온체인 txSig 검증 필요.
+  // 그 외에는 오프체인 메시지 서명으로 지갑 소유를 증명해야 함.
   const needsOnchainVerify =
     Boolean(moment.momentPda) && moment.onchainStatus !== 'FAILED';
 
@@ -105,17 +133,38 @@ export async function POST(req: NextRequest) {
         { status: 400 },
       );
     }
-    const txOk = await verifyTx(txSig);
+    const txOk = await verifyTx(txSig, minter, moment.momentPda);
     if (!txOk) {
       return NextResponse.json(
-        { error: 'Transaction not found or did not call Momento program' },
+        { error: 'Transaction verification failed: invalid signer, PDA, or program' },
         { status: 400 },
       );
+    }
+  } else {
+    // DB-only path: require an off-chain wallet message signature
+    if (!messageSignature || !messageTs) {
+      return NextResponse.json({ error: 'Wallet signature required' }, { status: 400 });
+    }
+    if (Math.abs(nowSec - Number(messageTs)) > 120) {
+      return NextResponse.json({ error: 'Signature expired, retry' }, { status: 400 });
+    }
+    const message = `Momento mint authorization\nmoment:${momentId}\nwallet:${minter}\nts:${messageTs}`;
+    const messageBytes = new TextEncoder().encode(message);
+    let sigValid = false;
+    try {
+      const minterPubkeyBytes = bs58.decode(minter);
+      const sigBytes = bs58.decode(messageSignature);
+      sigValid = nacl.sign.detached.verify(messageBytes, sigBytes, minterPubkeyBytes);
+    } catch {
+      sigValid = false;
+    }
+    if (!sigValid) {
+      return NextResponse.json({ error: 'Invalid wallet signature' }, { status: 401 });
     }
   }
 
   // ── 서버사이드 NFT 발행 ───────────────────────────────────────────────
-  let assetId = `no-keeper-key-${Date.now()}`;
+  let assetId: string;
   try {
     const nftName =
       moment.kind === 'GOAL'
@@ -124,6 +173,10 @@ export async function POST(req: NextRequest) {
     assetId = await mintCoreAsset(minter, moment.metadataUrl ?? '', nftName);
   } catch (err: any) {
     console.error('[mint] Server-side NFT creation failed:', err.message);
+    return NextResponse.json(
+      { error: 'NFT minting failed on-chain', detail: err.message },
+      { status: 502 },
+    );
   }
 
   // ── DB 기록 — unique 위반(P2002)도 409로 처리(race condition 대비) ────

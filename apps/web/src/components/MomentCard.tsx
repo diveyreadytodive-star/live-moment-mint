@@ -2,8 +2,9 @@
 
 import { useState, useEffect } from 'react';
 import { useWallet, useConnection } from '@solana/wallet-adapter-react';
-import { WalletMultiButton } from '@solana/wallet-adapter-react-ui';
+import { useWalletModal } from '@solana/wallet-adapter-react-ui';
 import { Transaction, TransactionInstruction, PublicKey } from '@solana/web3.js';
+import bs58 from 'bs58';
 import type { Moment } from '@momento/shared';
 
 interface Props {
@@ -15,8 +16,9 @@ const PROGRAM_ID = new PublicKey('CL6e7FZkgQ6GLwYbmcsz4kwi2hZzzWoP7ckWgSbvF7ja')
 const MINT_DISCRIMINATOR = Buffer.from([157, 243, 211, 63, 10, 118, 217, 42]);
 
 export function MomentCard({ moment, onMinted }: Props) {
-  const { publicKey, sendTransaction, connected } = useWallet();
+  const { publicKey, sendTransaction, signMessage, connected } = useWallet();
   const { connection } = useConnection();
+  const { setVisible: openWalletModal } = useWalletModal();
   const [timeLeft, setTimeLeft] = useState(0);
   const [minting, setMinting] = useState(false);
   const [mintError, setMintError] = useState<string | null>(null);
@@ -41,8 +43,11 @@ export function MomentCard({ moment, onMinted }: Props) {
     setMinting(true);
     setMintError(null);
     try {
-      // momentPda present → on-chain tx first; absent/FAILED → server-only
+      // momentPda present → on-chain tx first; absent/FAILED → off-chain message signature
       let txSig: string | undefined;
+      let messageSignature: string | undefined;
+      let messageTs: number | undefined;
+
       if (moment.momentPda) {
         const ix = new TransactionInstruction({
           programId: PROGRAM_ID,
@@ -58,12 +63,29 @@ export function MomentCard({ moment, onMinted }: Props) {
         tx.feePayer = publicKey;
         txSig = await sendTransaction(tx, connection);
         await connection.confirmTransaction({ signature: txSig, blockhash, lastValidBlockHeight }, 'confirmed');
+      } else {
+        // DB-only path: prove wallet ownership via off-chain message signature (no gas)
+        if (!signMessage) {
+          throw new Error(
+            '이 지갑은 서명 인증을 지원하지 않습니다. Phantom 또는 Solflare를 사용하세요.',
+          );
+        }
+        messageTs = Math.floor(Date.now() / 1000);
+        const message = `Momento mint authorization\nmoment:${moment.id}\nwallet:${publicKey.toBase58()}\nts:${messageTs}`;
+        const sigBytes = await signMessage(new TextEncoder().encode(message));
+        messageSignature = bs58.encode(sigBytes);
       }
 
       const res = await fetch('/api/mint', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ momentId: moment.id, minter: publicKey.toBase58(), txSig }),
+        body: JSON.stringify({
+          momentId: moment.id,
+          minter: publicKey.toBase58(),
+          txSig,
+          messageSignature,
+          messageTs,
+        }),
       });
       if (!res.ok) {
         const body = await res.json().catch(() => ({}));
@@ -133,7 +155,9 @@ export function MomentCard({ moment, onMinted }: Props) {
               {minting ? 'MINTING…' : 'MINT NOW'}
             </button>
           ) : (
-            <WalletMultiButton style={{ width: '100%' }} />
+            <button className="connect-btn" onClick={() => openWalletModal(true)}>
+              Connect Wallet
+            </button>
           )
         ) : !isVoid ? (
           <div style={{ fontSize: 10, color: 'var(--text3)', letterSpacing: 1.5, paddingTop: 2 }}>CLOSED</div>

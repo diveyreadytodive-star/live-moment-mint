@@ -31,6 +31,8 @@ import {
   Transaction,
   TransactionInstruction,
 } from '@solana/web3.js';
+import nacl from 'tweetnacl';
+import bs58 from 'bs58';
 import fs from 'fs';
 import path from 'path';
 
@@ -77,11 +79,20 @@ async function sendMintIx(
   return sig;
 }
 
-async function postMint(momentId: number, minter: string, txSig?: string): Promise<Response> {
+async function postMint(
+  momentId: number,
+  minter: string,
+  txSig?: string,
+  messageSignature?: string,
+  messageTs?: number,
+): Promise<Response> {
+  const body: Record<string, unknown> = { momentId, minter, txSig };
+  if (messageSignature !== undefined) body.messageSignature = messageSignature;
+  if (messageTs !== undefined) body.messageTs = messageTs;
   return fetch(`${BASE_URL}/api/mint`, {
     method:  'POST',
     headers: { 'Content-Type': 'application/json' },
-    body:    JSON.stringify({ momentId, minter, txSig }),
+    body:    JSON.stringify(body),
   });
 }
 
@@ -114,20 +125,29 @@ async function main() {
     process.exit(1);
   }
 
-  // ── Step 2: optional on-chain tx ─────────────────────────────────────────
+  // ── Step 2: optional on-chain tx or off-chain message signature ──────────
   let txSig: string | undefined;
+  let messageSignature: string | undefined;
+  let messageTs: number | undefined;
+
   if (moment.momentPda) {
     console.log(`\n[2] Sending mint_moment ix on-chain...`);
     txSig = await sendMintIx(conn, keypair, moment.momentPda);
     console.log(`    txSig: ${txSig}`);
     console.log(`    explorer: https://explorer.solana.com/tx/${txSig}?cluster=devnet`);
   } else {
-    console.log(`\n[2] No momentPda → skipping on-chain tx (DB-only path)`);
+    console.log(`\n[2] No momentPda → signing authorization message (DB-only path)`);
+    messageTs = Math.floor(Date.now() / 1000);
+    const message = `Momento mint authorization\nmoment:${MOMENT_ID}\nwallet:${minter}\nts:${messageTs}`;
+    const msgBytes = new TextEncoder().encode(message);
+    const sigBytes = nacl.sign.detached(msgBytes, keypair.secretKey);
+    messageSignature = bs58.encode(sigBytes);
+    console.log(`    messageTs: ${messageTs}`);
   }
 
   // ── Step 3: POST /api/mint ────────────────────────────────────────────────
   console.log(`\n[3] POST ${BASE_URL}/api/mint ...`);
-  const mintRes = await postMint(MOMENT_ID, minter, txSig);
+  const mintRes = await postMint(MOMENT_ID, minter, txSig, messageSignature, messageTs);
   const mintBody = await mintRes.json().catch(() => ({}));
   console.log(`    HTTP ${mintRes.status}`);
   console.log(`    body: ${JSON.stringify(mintBody)}`);
@@ -167,7 +187,7 @@ async function main() {
 
   // ── Step 5: dedup check — second request must be 409 ─────────────────────
   console.log(`\n[5] Duplicate mint check (same request again)...`);
-  const dupRes  = await postMint(MOMENT_ID, minter, txSig);
+  const dupRes  = await postMint(MOMENT_ID, minter, txSig, messageSignature, messageTs);
   const dupBody = await dupRes.json().catch(() => ({}));
   console.log(`    HTTP ${dupRes.status}`);
   console.log(`    body: ${JSON.stringify(dupBody)}`);

@@ -15,6 +15,9 @@
     "@metaplex-foundation/umi-bundle-defaults": "^1.5.1",
     "@metaplex-foundation/umi-web3js-adapters": "^1.5.1",
     "@momento/shared": "workspace:*",
+    "@reown/appkit": "^1.8.22",
+    "@reown/appkit-adapter-solana": "^1.8.22",
+    "@solana/wallet-adapter-backpack": "^0.1.14",
     "@solana/wallet-adapter-base": "^0.9.23",
     "@solana/wallet-adapter-phantom": "^0.9.29",
     "@solana/wallet-adapter-react": "^0.15.35",
@@ -22,9 +25,11 @@
     "@solana/wallet-adapter-solflare": "^0.6.33",
     "@solana/web3.js": "^1.95.0",
     "axios": "^1.7.0",
+    "bs58": "^6.0.0",
     "next": "^14.2.0",
     "react": "^18.3.0",
-    "react-dom": "^18.3.0"
+    "react-dom": "^18.3.0",
+    "tweetnacl": "^1.0.3"
   },
   "devDependencies": {
     "@types/node": "*",

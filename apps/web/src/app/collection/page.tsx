@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useWallet } from '@solana/wallet-adapter-react';
-import { WalletMultiButton } from '@solana/wallet-adapter-react-ui';
+import { ConnectWalletButton } from '@/components/ConnectWalletButton';
 
 interface MintRecord {
   id: number;
@@ -38,7 +38,7 @@ export default function CollectionPage() {
 
   if (!connected) {
     return (
-      <div>
+      <div className="page-inner">
         <p style={{
           fontSize: 10, fontWeight: 700, letterSpacing: 2.5, color: 'var(--text3)',
           textTransform: 'uppercase', marginBottom: 28,
@@ -48,7 +48,7 @@ export default function CollectionPage() {
         <p style={{ fontSize: 12, color: 'var(--text2)', marginBottom: 20 }}>
           Connect your wallet to view your moments.
         </p>
-        <WalletMultiButton />
+        <ConnectWalletButton />
       </div>
     );
   }
@@ -56,7 +56,7 @@ export default function CollectionPage() {
   const wallet = publicKey?.toBase58() ?? '';
 
   return (
-    <div>
+    <div className="page-inner">
       <p style={{
         fontSize: 10, fontWeight: 700, letterSpacing: 2.5, color: 'var(--text3)',
         textTransform: 'uppercase', marginBottom: 6,
