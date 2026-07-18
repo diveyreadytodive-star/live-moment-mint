@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import { useWallet, useConnection } from '@solana/wallet-adapter-react';
-import { WalletMultiButton } from '@solana/wallet-adapter-react-ui';
+import { useWalletModal } from '@solana/wallet-adapter-react-ui';
 import { Transaction, TransactionInstruction, PublicKey } from '@solana/web3.js';
 import bs58 from 'bs58';
 
@@ -27,6 +27,7 @@ interface MomentDetail {
 export default function MomentPage() {
   const { id } = useParams();
   const { publicKey, sendTransaction, signMessage, connected } = useWallet();
+  const { setVisible: openWalletModal } = useWalletModal();
   const { connection } = useConnection();
 
   const [moment, setMoment] = useState<MomentDetail | null>(null);
@@ -109,7 +110,16 @@ export default function MomentPage() {
 
   const isOpen = moment.status === 'OPEN' && timeLeft > 0;
   const isVoid = moment.status === 'VOID';
-  const fmt = (s: number) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
+  const fmt = (s: number) => {
+    if (s <= 0) return '0:00';
+    const d = Math.floor(s / 86400);
+    const h = Math.floor((s % 86400) / 3600);
+    const m = Math.floor((s % 3600) / 60);
+    const sec = s % 60;
+    if (d > 0) return `${d}d ${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+    if (h > 0) return `${h}:${String(m).padStart(2, '0')}:${String(sec).padStart(2, '0')}`;
+    return `${m}:${String(sec).padStart(2, '0')}`;
+  };
   const kindLabel = moment.kind === 'GOAL' ? 'GOAL' : 'FULL TIME';
   const collectors = moment.mints.length;
 
@@ -200,7 +210,13 @@ export default function MomentPage() {
               {minting ? 'Minting…' : 'Mint this moment'}
             </button>
           ) : (
-            <WalletMultiButton style={{ marginBottom: 12, width: '100%', maxWidth: 360 }} />
+            <button
+              className="moment-hero-mint-btn"
+              style={{ background: 'var(--accent-blue)', color: '#fff' }}
+              onClick={() => openWalletModal(true)}
+            >
+              Connect Wallet
+            </button>
           )}
         </>
       ) : (

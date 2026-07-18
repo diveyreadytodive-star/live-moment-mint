@@ -15,7 +15,7 @@ const FLAG: Record<string, string> = {
   Qatar: '🇶🇦', Nigeria: '🇳🇬', Cameroon: '🇨🇲', Tunisia: '🇹🇳',
   Egypt: '🇪🇬', Algeria: '🇩🇿', 'Ivory Coast': '🇨🇮', 'South Africa': '🇿🇦',
   China: '🇨🇳', Indonesia: '🇮🇩', Thailand: '🇹🇭', Vietnam: '🇻🇳',
-  'New Zealand': '🇳🇿', 'Costa Rica': '🇨🇷', Panama: '🇵🇦',
+  'New Zealand': '🇳🇿', 'Costa Rica': '🇨🇷', Panama: '🇵🇦', 'Cabo Verde': '🇨🇻',
 };
 const flag = (name: string) => FLAG[name] ?? '🏳';
 
@@ -27,6 +27,7 @@ interface MomentSummary {
   scoreP1: number;
   scoreP2: number;
   minute?: number;
+  imageUrl?: string | null;
   _count?: { mints: number };
 }
 
@@ -68,9 +69,17 @@ interface DropItem extends MomentSummary { fixtureId: string; }
 function DropCard({ drop, now, animIndex, isNew }: { drop: DropItem; now: number; animIndex: number; isNew: boolean }) {
   const [hover, setHover] = useState(false);
   const secsLeft = Math.max(0, drop.closeTs - now);
-  const m = Math.floor(secsLeft / 60);
-  const s = String(secsLeft % 60).padStart(2, '0');
   const urgent = secsLeft < 60;
+  const fmtSecs = (s: number) => {
+    if (s <= 0) return '0:00';
+    const d = Math.floor(s / 86400);
+    const h = Math.floor((s % 86400) / 3600);
+    const mn = Math.floor((s % 3600) / 60);
+    const sc = s % 60;
+    if (d > 0) return `${d}d ${String(h).padStart(2, '0')}:${String(mn).padStart(2, '0')}`;
+    if (h > 0) return `${h}:${String(mn).padStart(2, '0')}:${String(sc).padStart(2, '0')}`;
+    return `${mn}:${String(sc).padStart(2, '0')}`;
+  };
   // new drops animate at index 0 (front); initial mount staggers all cards
   const delay = isNew ? `${animIndex * 80}ms` : '0ms';
   return (
@@ -89,9 +98,17 @@ function DropCard({ drop, now, animIndex, isNew }: { drop: DropItem; now: number
         animationDelay: delay,
       }}
     >
-      <div style={{ width: '100%', aspectRatio: '4/3', background: 'linear-gradient(135deg, var(--accent-blue) 0%, var(--surface2) 60%)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.6)', letterSpacing: 1 }}>MOMENT IMAGE</span>
-      </div>
+      {drop.imageUrl ? (
+        <img
+          src={drop.imageUrl}
+          alt={drop.kind === 'GOAL' ? `Goal ${drop.scoreP1}–${drop.scoreP2}` : `Full Time ${drop.scoreP1}–${drop.scoreP2}`}
+          style={{ width: '100%', aspectRatio: '1/1', objectFit: 'cover', display: 'block' }}
+        />
+      ) : (
+        <div style={{ width: '100%', aspectRatio: '4/3', background: 'linear-gradient(135deg, var(--accent-blue) 0%, var(--surface2) 60%)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.6)', letterSpacing: 1 }}>MOMENT IMAGE</span>
+        </div>
+      )}
       <div style={{ padding: 16 }}>
         <div style={{ fontSize: 9, fontWeight: 800, letterSpacing: 2, textTransform: 'uppercase', color: 'var(--gold)', marginBottom: 6 }}>
           {drop.kind === 'GOAL' ? `Goal${drop.minute ? ` · ${drop.minute}'` : ''}` : 'Full Time'}
@@ -101,7 +118,7 @@ function DropCard({ drop, now, animIndex, isNew }: { drop: DropItem; now: number
         </div>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 11, color: 'var(--text2)', marginBottom: 12 }}>
           <span>{drop._count?.mints ?? 0} minted</span>
-          <span style={{ fontFamily: 'var(--font-mono)', color: urgent ? 'var(--danger)' : 'var(--gold)', fontWeight: 800, fontSize: 13 }}>{m}:{s}</span>
+          <span style={{ fontFamily: 'var(--font-mono)', color: urgent ? 'var(--danger)' : 'var(--gold)', fontWeight: 800, fontSize: 13 }}>{fmtSecs(secsLeft)}</span>
         </div>
         <div style={{ width: '100%', padding: '10px', borderRadius: 'var(--radius-sm)', background: 'var(--accent-blue)', color: '#fff', fontSize: 11, fontWeight: 800, letterSpacing: 1.5, textTransform: 'uppercase', textAlign: 'center', fontFamily: 'var(--font-display)' }}>
           Mint Now
@@ -251,10 +268,10 @@ export default function FeedPage() {
         <img src="/hero-world-cup-collage.png" alt="Momento — World Cup 2026" style={{
           position: 'absolute', inset: 0, width: '100%', height: '100%',
           objectFit: 'cover', objectPosition: '50% 60%',
-          filter: 'saturate(0.55) brightness(0.35) contrast(1.05) blur(3px)',
+          filter: 'saturate(0.75) brightness(0.72) contrast(1.05) blur(2px)',
           transform: 'scale(1.25)',
         }} />
-        <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(100deg, rgba(7,7,16,0.98) 0%, rgba(7,7,16,0.88) 30%, rgba(7,7,16,0.55) 58%, rgba(7,7,16,0.7) 100%)' }} />
+        <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(100deg, rgba(7,7,16,0.78) 0%, rgba(7,7,16,0.55) 30%, rgba(7,7,16,0.18) 58%, rgba(7,7,16,0.30) 100%)' }} />
         <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(0deg, var(--bg) 0%, transparent 32%, transparent 100%)' }} />
         <div style={{ position: 'absolute', left: 0, right: 0, bottom: 0, top: 0, display: 'flex', flexDirection: 'column', justifyContent: 'flex-end', padding: '0 40px 32px', maxWidth: 620 }}>
           <p style={{ fontFamily: 'var(--font-display)', fontSize: 11, fontWeight: 800, letterSpacing: 'var(--tracking-widest)', textTransform: 'uppercase', color: 'var(--gold-light)', marginBottom: 14 }}>2026 FIFA World Cup</p>

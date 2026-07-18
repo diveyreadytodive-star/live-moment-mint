@@ -35,14 +35,14 @@ export default function LandingPage() {
           position: 'absolute', inset: 0,
           width: '100%', height: '100%',
           objectFit: 'cover', objectPosition: '50% 62%',
-          filter: 'saturate(0.55) brightness(0.32) contrast(1.05) blur(3px)',
+          filter: 'saturate(0.75) brightness(0.72) contrast(1.05) blur(2px)',
           transform: 'scale(1.25)',
         }}
       />
       {/* Scrim */}
       <div style={{
         position: 'absolute', inset: 0,
-        background: 'linear-gradient(180deg, rgba(7,7,16,0.78) 0%, rgba(7,7,16,0.7) 35%, rgba(7,7,16,0.92) 78%, var(--bg) 100%)',
+        background: 'linear-gradient(180deg, rgba(7,7,16,0.40) 0%, rgba(7,7,16,0.32) 35%, rgba(7,7,16,0.70) 78%, var(--bg) 100%)',
       }} />
 
       {/* Top bar */}

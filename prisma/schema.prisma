@@ -24,7 +24,8 @@ model Fixture {
   liveMinute   Int?
   statusId     Int?
 
-  moments   Moment[]
+  moments     Moment[]
+  predictions Prediction[]
 }
 
 model Moment {
@@ -44,9 +45,11 @@ model Moment {
   onchainStatus String?  // null | 'OK' | 'FAILED'
   imageData     Bytes?   // PNG bytes, served via /api/moments/[id]/image
   metadataJson  String?  // JSON text, served via /api/moments/[id]/metadata
-  status        String   @default("OPEN") // OPEN | CLOSED | VOID
-  openTs        Int
-  closeTs       Int
+  status               String   @default("OPEN") // OPEN | CLOSED | VOID
+  openTs               Int
+  closeTs              Int
+  isPredictionReward   Boolean  @default(false)
+  predictionOutcome    String?  // HOME | DRAW | AWAY — which prediction unlocks this mint
 
   fixture       Fixture? @relation(fields: [fixtureId], references: [id])
   mints         Mint[]
@@ -66,4 +69,16 @@ model Mint {
 
   @@unique([txSig])                  // replay guard — same tx can't mint twice
   @@unique([momentId, minterPubkey]) // per-wallet per-moment guard
+}
+
+model Prediction {
+  id        Int      @id @default(autoincrement())
+  fixtureId String
+  wallet    String
+  outcome   String   // HOME | DRAW | AWAY
+  createdAt Int
+
+  fixture   Fixture  @relation(fields: [fixtureId], references: [id])
+
+  @@unique([fixtureId, wallet])
 }

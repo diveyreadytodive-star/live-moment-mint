@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback } from 'react';
 import { useParams } from 'next/navigation';
 import type { Moment } from '@momento/shared';
 import { MomentCard } from '@/components/MomentCard';
+import { PredictionPanel } from '@/components/PredictionPanel';
 
 const FLAG: Record<string, string> = {
   Argentina: '🇦🇷', Switzerland: '🇨🇭', France: '🇫🇷', Spain: '🇪🇸',
@@ -11,7 +12,7 @@ const FLAG: Record<string, string> = {
   Netherlands: '🇳🇱', Italy: '🇮🇹', USA: '🇺🇸', Mexico: '🇲🇽',
   Japan: '🇯🇵', 'South Korea': '🇰🇷', Morocco: '🇲🇦', Croatia: '🇭🇷',
   Denmark: '🇩🇰', Uruguay: '🇺🇾', Colombia: '🇨🇴', Nigeria: '🇳🇬',
-  Qatar: '🇶🇦', Canada: '🇨🇦', 'Saudi Arabia': '🇸🇦',
+  Qatar: '🇶🇦', Canada: '🇨🇦', 'Saudi Arabia': '🇸🇦', 'Cabo Verde': '🇨🇻',
 };
 const flag = (name: string) => FLAG[name] ?? '🏳';
 
@@ -67,10 +68,13 @@ export default function MatchPage() {
   const p1Wins = scoreP1 !== null && scoreP2 !== null && scoreP1 > scoreP2;
   const p2Wins = scoreP1 !== null && scoreP2 !== null && scoreP2 > scoreP1;
 
-  const open   = fixture.moments.filter(m => m.status === 'OPEN' && m.closeTs > now);
-  const closed = fixture.moments.filter(m => !open.includes(m));
+  const open   = fixture.moments.filter(m => m.status === 'OPEN' && m.closeTs > now && !(m as any).isPredictionReward);
+  const closed = fixture.moments.filter(m => !open.includes(m) && !(m as any).isPredictionReward);
 
   const featured = open[0] ?? null;
+
+  // prediction reward moment (hidden from main grid, shown via PredictionPanel)
+  const rewardMoment = fixture.moments.find((m: any) => m.isPredictionReward) ?? null;
   const featuredSecsLeft = featured ? Math.max(0, featured.closeTs - now) : 0;
   const featuredUrgent   = featuredSecsLeft < 60;
   const fmt = (s: number) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
@@ -128,28 +132,49 @@ export default function MatchPage() {
           </div>
         </div>
 
+        {/* Prediction Panel */}
+        <PredictionPanel
+          fixtureId={fixture.id}
+          p1Name={fixture.p1Name}
+          p2Name={fixture.p2Name}
+          kickoffTs={fixture.kickoffTs}
+          statusId={fixture.statusId}
+          liveScoreP1={fixture.liveScoreP1}
+          liveScoreP2={fixture.liveScoreP2}
+          rewardMomentId={(rewardMoment as any)?.id ?? null}
+        />
+
         {/* Featured open moment — Mint Hero Banner */}
         {featured && (
-          <div className={`mint-hero-banner${featuredUrgent ? ' urgent' : ''}`}>
-            <div className="mint-hero-banner-bg" />
-            <div className="mint-hero-banner-open-badge">Minting Window Open</div>
-            <div className="mint-hero-banner-body">
-              <span className="mint-hero-banner-kind">
-                {featured.kind === 'GOAL'
-                  ? `GOAL${featured.minute ? ` · ${featured.minute}'` : ''}`
-                  : 'FULL TIME'}
-              </span>
-              <div className="mint-hero-banner-score">{featured.scoreP1}–{featured.scoreP2}</div>
-              {(featured._count?.mints ?? 0) > 0 && (
-                <div className="mint-hero-banner-collected">{featured._count!.mints} collected so far</div>
-              )}
-              <div className="mint-hero-banner-actions">
-                <div className={`mint-hero-banner-countdown${featuredUrgent ? ' urgent' : ''}`}>
-                  {fmt(featuredSecsLeft)}
+          <div className={`mint-hero-banner${featuredUrgent ? ' urgent' : ''}`} style={{ display: 'flex', gap: 0, overflow: 'hidden' }}>
+            {featured.imageUrl && (
+              <img
+                src={featured.imageUrl}
+                alt={featured.kind === 'GOAL' ? `Goal ${featured.scoreP1}–${featured.scoreP2}` : `Full Time ${featured.scoreP1}–${featured.scoreP2}`}
+                style={{ width: 200, flexShrink: 0, objectFit: 'cover', display: 'block' }}
+              />
+            )}
+            <div style={{ flex: 1, position: 'relative' }}>
+              <div className="mint-hero-banner-bg" />
+              <div className="mint-hero-banner-open-badge">Minting Window Open</div>
+              <div className="mint-hero-banner-body">
+                <span className="mint-hero-banner-kind">
+                  {featured.kind === 'GOAL'
+                    ? `GOAL${featured.minute ? ` · ${featured.minute}'` : ''}`
+                    : 'FULL TIME'}
+                </span>
+                <div className="mint-hero-banner-score">{featured.scoreP1}–{featured.scoreP2}</div>
+                {(featured._count?.mints ?? 0) > 0 && (
+                  <div className="mint-hero-banner-collected">{featured._count!.mints} collected so far</div>
+                )}
+                <div className="mint-hero-banner-actions">
+                  <div className={`mint-hero-banner-countdown${featuredUrgent ? ' urgent' : ''}`}>
+                    {fmt(featuredSecsLeft)}
+                  </div>
+                  <a href={`/moment/${featured.id}`} className="mint-hero-banner-btn">
+                    Mint Now
+                  </a>
                 </div>
-                <a href={`/moment/${featured.id}`} className="mint-hero-banner-btn">
-                  Mint Now
-                </a>
               </div>
             </div>
           </div>

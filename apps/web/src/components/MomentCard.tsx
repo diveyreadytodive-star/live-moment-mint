@@ -36,7 +36,16 @@ export function MomentCard({ moment, onMinted }: Props) {
   const isVoid = moment.status === 'VOID';
   const mintCount = moment._count?.mints ?? 0;
 
-  const fmt = (s: number) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
+  const fmt = (s: number) => {
+    if (s <= 0) return '0:00';
+    const d = Math.floor(s / 86400);
+    const h = Math.floor((s % 86400) / 3600);
+    const m = Math.floor((s % 3600) / 60);
+    const sec = s % 60;
+    if (d > 0) return `${d}d ${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+    if (h > 0) return `${h}:${String(m).padStart(2, '0')}:${String(sec).padStart(2, '0')}`;
+    return `${m}:${String(sec).padStart(2, '0')}`;
+  };
 
   const handleMint = async () => {
     if (!publicKey || !connected) return;

@@ -107,6 +107,25 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Minting window is closed' }, { status: 409 });
   }
 
+  // ── 예측 보상 NFT 게이팅 ──────────────────────────────────────────────
+  if (moment.isPredictionReward) {
+    const prediction = await (db as any).prediction.findUnique({
+      where: { fixtureId_wallet: { fixtureId: moment.fixtureId, wallet: minter } },
+    });
+    if (!prediction) {
+      return NextResponse.json(
+        { error: 'This NFT is only for users who predicted this match' },
+        { status: 403 },
+      );
+    }
+    if (prediction.outcome !== moment.predictionOutcome) {
+      return NextResponse.json(
+        { error: `Incorrect prediction — you predicted ${prediction.outcome}` },
+        { status: 403 },
+      );
+    }
+  }
+
   // ── 중복 방지 — mintCoreAsset 이전에 확인 ─────────────────────────────
   const dupCheck = await (db as any).mint.findFirst({
     where: {
