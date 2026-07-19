@@ -1,0 +1,26 @@
+services:
+  - type: web
+    name: momento-keeper
+    runtime: docker
+    dockerfilePath: ./Dockerfile.keeper
+    plan: free
+    healthCheckPath: /
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: DATABASE_URL
+        sync: false
+      - key: TXLINE_API_ORIGIN
+        value: https://txline-dev.txodds.com
+      - key: TXLINE_API_TOKEN
+        sync: false
+      - key: FOOTBALL_DATA_TOKEN
+        sync: false
+      - key: PUBLIC_BASE_URL
+        sync: false
+      - key: KEEPER_WALLET_PATH
+        value: /app/keeper-wallet.json
+      - key: SOLANA_RPC_URL
+        sync: false
+      - key: MOMENTO_PROGRAM_ID
+        sync: false

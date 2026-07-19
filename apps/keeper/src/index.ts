@@ -9,6 +9,7 @@
  * Re-syncs football-data.org every SYNC_INTERVAL_MS (default 6h) for updated results.
  */
 import 'dotenv/config';
+import http from 'http';
 import * as anchor from '@coral-xyz/anchor';
 import fs from 'fs';
 import path from 'path';
@@ -137,6 +138,12 @@ async function main() {
   process.on('SIGINT',  () => { stop(); db.$disconnect(); process.exit(0); });
   process.on('SIGTERM', () => { stop(); db.$disconnect(); process.exit(0); });
   console.log('Listening for live events. Ctrl+C to stop.');
+
+  const port = Number(process.env.PORT ?? 3000);
+  http.createServer((_, res) => { res.writeHead(200); res.end('OK'); }).listen(port, () => {
+    console.log(`[keeper] Health check server listening on :${port}`);
+  });
+
   await new Promise(() => {});
 }
 
