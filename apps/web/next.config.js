@@ -4,13 +4,12 @@ const nextConfig = {
   images: {
     unoptimized: true,
   },
-  webpack: (config) => {
-    // Fix @noble/hashes version conflict from @metaplex-foundation/mpl-core
-    config.resolve.alias = {
-      ...config.resolve.alias,
-      '@noble/hashes/sha3': require.resolve('@noble/hashes/sha3'),
-    };
-    return config;
+  experimental: {
+    serverComponentsExternalPackages: [
+      '@metaplex-foundation/mpl-core',
+      '@metaplex-foundation/umi',
+      '@metaplex-foundation/umi-bundle-defaults',
+    ],
   },
 };
 
