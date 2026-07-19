@@ -40,7 +40,6 @@ export default function MomentPage() {
   const [mintError, setMintError] = useState<string | null>(null);
   const [mintedAsset, setMintedAsset] = useState<string | null>(null);
   const [mintTx, setMintTx] = useState<string | null>(null);
-  const [memoTxSig, setMemoTxSig] = useState<string | null>(null);
 
   const fetchMoment = async () => {
     const res = await fetch(`/api/moments/${id}`);
@@ -100,7 +99,6 @@ export default function MomentPage() {
       const body = await res.json();
       setMintTx(txSig ?? null);
       setMintedAsset(body.assetId ?? null);
-      setMemoTxSig(body.memoTxSig ?? null);
       fetchMoment();
     } catch (err: any) {
       setMintError(err.message);
@@ -176,7 +174,7 @@ export default function MomentPage() {
           <div className="moment-hero-mint-btn success" style={{ display: 'block', maxWidth: 360 }}>
             ✓ Minted
           </div>
-          {mintedAsset && !mintedAsset.startsWith('no-keeper') && (
+          {mintedAsset && !mintedAsset.startsWith('db-') && (
             <a
               href={`https://explorer.solana.com/address/${mintedAsset}?cluster=devnet`}
               target="_blank"
@@ -196,17 +194,6 @@ export default function MomentPage() {
               style={{ display: 'block' }}
             >
               ↗ View transaction
-            </a>
-          )}
-          {memoTxSig && (
-            <a
-              href={`https://explorer.solana.com/tx/${memoTxSig}?cluster=devnet`}
-              target="_blank"
-              rel="noreferrer"
-              className="explorer-link"
-              style={{ display: 'block' }}
-            >
-              ↗ View mint record on Solana
             </a>
           )}
         </div>

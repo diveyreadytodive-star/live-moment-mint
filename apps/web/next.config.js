@@ -6,6 +6,7 @@ const nextConfig = {
   },
   experimental: {
     serverComponentsExternalPackages: [
+      '@solana/spl-token',
       '@metaplex-foundation/mpl-core',
       '@metaplex-foundation/umi',
       '@metaplex-foundation/umi-bundle-defaults',

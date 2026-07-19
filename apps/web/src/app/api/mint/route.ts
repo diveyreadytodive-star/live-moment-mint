@@ -1,6 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { Connection, Keypair, PublicKey } from '@solana/web3.js';
+import {
+  createMint,
+  getOrCreateAssociatedTokenAccount,
+  mintTo,
+  setAuthority,
+  AuthorityType,
+} from '@solana/spl-token';
 import nacl from 'tweetnacl';
 import bs58 from 'bs58';
 
@@ -62,37 +69,33 @@ async function verifyTx(
   }
 }
 
-const MEMO_PROGRAM = new PublicKey('MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr');
-
-async function mintWithMemo(
-  minterAddress: string,
-  momentId: number,
-  name: string,
-  metadataUri: string,
-): Promise<string> {
+/**
+ * Mints a real 1/1 SPL token NFT to the minter's wallet.
+ * Uses only @solana/spl-token (no Metaplex/mpl-core dependency).
+ * Returns the mint address (= the NFT's unique on-chain ID).
+ */
+async function mintSplNft(minterAddress: string): Promise<string> {
   const keeperKp = loadKeeperKp();
   if (!keeperKp) throw new Error('KEEPER_PRIVATE_KEY not set');
 
   const conn = new Connection(RPC, 'confirmed');
-  const memo = JSON.stringify({ momento: 1, momentId, name, owner: minterAddress, uri: metadataUri });
+  const minterPubkey = new PublicKey(minterAddress);
 
-  const { TransactionInstruction, Transaction, SystemProgram } = await import('@solana/web3.js');
+  // 1. Create a new mint with 0 decimals, keeper is mint authority
+  const mint = await createMint(conn, keeperKp, keeperKp.publicKey, null, 0);
 
-  const ix = new TransactionInstruction({
-    programId: MEMO_PROGRAM,
-    keys: [{ pubkey: keeperKp.publicKey, isSigner: true, isWritable: false }],
-    data: Buffer.from(memo, 'utf-8'),
-  });
+  // 2. Create associated token account for the minter
+  const tokenAccount = await getOrCreateAssociatedTokenAccount(
+    conn, keeperKp, mint, minterPubkey,
+  );
 
-  const tx = new Transaction().add(ix);
-  const { blockhash, lastValidBlockHeight } = await conn.getLatestBlockhash();
-  tx.recentBlockhash = blockhash;
-  tx.feePayer = keeperKp.publicKey;
-  tx.sign(keeperKp);
+  // 3. Mint exactly 1 token to the minter
+  await mintTo(conn, keeperKp, mint, tokenAccount.address, keeperKp, 1);
 
-  const sig = await conn.sendRawTransaction(tx.serialize());
-  await conn.confirmTransaction({ signature: sig, blockhash, lastValidBlockHeight }, 'confirmed');
-  return sig;
+  // 4. Remove mint authority — fixed supply of 1, truly non-fungible
+  await setAuthority(conn, keeperKp, mint, keeperKp, AuthorityType.MintTokens, null);
+
+  return mint.toBase58();
 }
 
 export async function POST(req: NextRequest) {
@@ -199,7 +202,7 @@ export async function POST(req: NextRequest) {
   ).replace(/\/$/, '');
   const metadataUri = `${base}/api/moments/${moment.id}/metadata`;
   try {
-    assetId = await mintWithMemo(minter, moment.id, nftName, metadataUri);
+    assetId = await mintSplNft(minter);
   } catch (err: any) {
     console.error('[mint] On-chain mint failed, falling back to DB-only:', err.message);
     assetId = `db-${moment.id}-${minter.slice(0, 8)}-${Date.now()}`;
@@ -212,12 +215,11 @@ export async function POST(req: NextRequest) {
         momentId,
         minterPubkey: minter,
         assetId,
-        txSig: assetId.startsWith('db-') ? (txSig ?? `no-tx-${Date.now()}`) : assetId,
+        txSig: txSig ?? `no-tx-${Date.now()}`,
         createdAt: nowSec,
       },
     });
-    const memoTxSig = assetId.startsWith('db-') ? null : assetId;
-    return NextResponse.json({ mint, assetId, memoTxSig });
+    return NextResponse.json({ mint, assetId });
   } catch (err: any) {
     if (err?.code === 'P2002') {
       return NextResponse.json({ error: 'Already minted (race)' }, { status: 409 });
