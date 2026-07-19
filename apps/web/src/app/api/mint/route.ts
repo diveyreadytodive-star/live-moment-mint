@@ -20,7 +20,7 @@ function loadKeeperKp(): Keypair | null {
   const raw = process.env.KEEPER_PRIVATE_KEY;
   if (!raw) return null;
   try {
-    return Keypair.fromSecretKey(Uint8Array.from(JSON.parse(raw)));
+    return Keypair.fromSecretKey(Uint8Array.from(JSON.parse(raw.replace(/\s/g, ''))));
   } catch {
     return null;
   }
