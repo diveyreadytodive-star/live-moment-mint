@@ -4,21 +4,46 @@
     "name": "moment_mint",
     "version": "0.1.0",
     "spec": "0.1.0",
-    "description": "Momento — on-chain minting windows for live soccer moments"
+    "description": "Momento \u2014 on-chain minting windows for live soccer moments"
   },
   "instructions": [
     {
       "name": "open_moment_window",
-      "discriminator": [104, 125, 103, 198, 146, 135, 81, 158],
+      "discriminator": [
+        104,
+        125,
+        103,
+        198,
+        146,
+        135,
+        81,
+        158
+      ],
       "accounts": [
         {
           "name": "moment",
           "writable": true,
           "pda": {
             "seeds": [
-              { "kind": "const", "value": [109, 111, 109, 101, 110, 116] },
-              { "kind": "arg", "path": "fixture_id" },
-              { "kind": "arg", "path": "seq" }
+              {
+                "kind": "const",
+                "value": [
+                  109,
+                  111,
+                  109,
+                  101,
+                  110,
+                  116
+                ]
+              },
+              {
+                "kind": "arg",
+                "path": "fixture_id"
+              },
+              {
+                "kind": "arg",
+                "path": "seq"
+              }
             ]
           }
         },
@@ -33,17 +58,44 @@
         }
       ],
       "args": [
-        { "name": "fixture_id", "type": "string" },
-        { "name": "seq", "type": "u64" },
-        { "name": "open_ts", "type": "i64" },
-        { "name": "close_ts", "type": "i64" },
-        { "name": "kind", "type": "u8" },
-        { "name": "metadata_uri", "type": "string" }
+        {
+          "name": "fixture_id",
+          "type": "string"
+        },
+        {
+          "name": "seq",
+          "type": "u64"
+        },
+        {
+          "name": "open_ts",
+          "type": "i64"
+        },
+        {
+          "name": "close_ts",
+          "type": "i64"
+        },
+        {
+          "name": "kind",
+          "type": "u8"
+        },
+        {
+          "name": "metadata_uri",
+          "type": "string"
+        }
       ]
     },
     {
       "name": "mint_moment",
-      "discriminator": [157, 243, 211, 63, 10, 118, 217, 42],
+      "discriminator": [
+        157,
+        243,
+        211,
+        63,
+        10,
+        118,
+        217,
+        42
+      ],
       "accounts": [
         {
           "name": "moment",
@@ -51,14 +103,37 @@
         },
         {
           "name": "minter",
+          "writable": true,
           "signer": true
+        },
+        {
+          "name": "asset",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "mpl_core_program",
+          "address": "CoREENxT6tW1HoK8ypY1SxRMZTcVPm7R94rH4PZNhX7d"
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
         }
       ],
       "args": []
     },
     {
       "name": "void_moment",
-      "discriminator": [12, 33, 138, 249, 24, 5, 199, 204],
+      "discriminator": [
+        12,
+        33,
+        138,
+        249,
+        24,
+        5,
+        199,
+        204
+      ],
       "accounts": [
         {
           "name": "moment",
@@ -75,13 +150,31 @@
   "accounts": [
     {
       "name": "Moment",
-      "discriminator": [245, 210, 75, 98, 220, 165, 70, 255]
+      "discriminator": [
+        245,
+        210,
+        75,
+        98,
+        220,
+        165,
+        70,
+        255
+      ]
     }
   ],
   "events": [
     {
       "name": "MintEvent",
-      "discriminator": [197, 144, 146, 149, 66, 164, 95, 16]
+      "discriminator": [
+        197,
+        144,
+        146,
+        149,
+        66,
+        164,
+        95,
+        16
+      ]
     }
   ],
   "errors": [
@@ -102,15 +195,42 @@
       "type": {
         "kind": "struct",
         "fields": [
-          { "name": "authority", "type": "pubkey" },
-          { "name": "fixture_id", "type": "string" },
-          { "name": "seq", "type": "u64" },
-          { "name": "open_ts", "type": "i64" },
-          { "name": "close_ts", "type": "i64" },
-          { "name": "kind", "type": "u8" },
-          { "name": "metadata_uri", "type": "string" },
-          { "name": "mint_count", "type": "u64" },
-          { "name": "status", "type": "u8" }
+          {
+            "name": "authority",
+            "type": "pubkey"
+          },
+          {
+            "name": "fixture_id",
+            "type": "string"
+          },
+          {
+            "name": "seq",
+            "type": "u64"
+          },
+          {
+            "name": "open_ts",
+            "type": "i64"
+          },
+          {
+            "name": "close_ts",
+            "type": "i64"
+          },
+          {
+            "name": "kind",
+            "type": "u8"
+          },
+          {
+            "name": "metadata_uri",
+            "type": "string"
+          },
+          {
+            "name": "mint_count",
+            "type": "u64"
+          },
+          {
+            "name": "status",
+            "type": "u8"
+          }
         ]
       }
     },
@@ -119,10 +239,22 @@
       "type": {
         "kind": "struct",
         "fields": [
-          { "name": "fixture_id", "type": "string" },
-          { "name": "seq", "type": "u64" },
-          { "name": "minter", "type": "pubkey" },
-          { "name": "mint_count", "type": "u64" }
+          {
+            "name": "fixture_id",
+            "type": "string"
+          },
+          {
+            "name": "seq",
+            "type": "u64"
+          },
+          {
+            "name": "minter",
+            "type": "pubkey"
+          },
+          {
+            "name": "mint_count",
+            "type": "u64"
+          }
         ]
       }
     }

@@ -1,13 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
-import { Connection, Keypair, PublicKey } from '@solana/web3.js';
-import {
-  createMint,
-  getOrCreateAssociatedTokenAccount,
-  mintTo,
-  setAuthority,
-  AuthorityType,
-} from '@solana/spl-token';
+import { Connection } from '@solana/web3.js';
 import nacl from 'tweetnacl';
 import bs58 from 'bs58';
 
@@ -16,91 +9,65 @@ export const dynamic = 'force-dynamic';
 const PROGRAM_ID = 'CL6e7FZkgQ6GLwYbmcsz4kwi2hZzzWoP7ckWgSbvF7ja';
 const RPC = process.env.SOLANA_RPC_URL ?? 'https://api.devnet.solana.com';
 
-function loadKeeperKp(): Keypair | null {
-  const raw = process.env.KEEPER_PRIVATE_KEY;
-  if (!raw) return null;
-  try {
-    return Keypair.fromSecretKey(Uint8Array.from(JSON.parse(raw.replace(/\s/g, ''))));
-  } catch {
-    return null;
-  }
-}
-
 /**
- * Verifies that:
- *  1. The transaction succeeded and called the Momento program.
- *  2. minter is a signer in the transaction.
- *  3. momentPda (when provided) appears in the transaction's account list.
+ * Verifies the on-chain mint_moment transaction. All conditions must hold:
+ *  1. The transaction succeeded (no error) and called the Momento program.
+ *  2. `minter` is an actual signer of the transaction.
+ *  3. `momentPda` appears in the account list (proves this tx targeted this moment).
+ *  4. When `assetAddress` is supplied, it must appear as a signer in the tx
+ *     (proves the new Metaplex Core asset was created in this same transaction).
+ *
+ * Returns { ok, asset } — `asset` is the confirmed on-chain NFT address, or null.
  */
 async function verifyTx(
   txSig: string,
   minter: string,
   momentPda: string | null,
-): Promise<boolean> {
+  assetAddress: string | null,
+): Promise<{ ok: boolean; asset: string | null }> {
   try {
     const conn = new Connection(RPC, 'confirmed');
     const tx = await conn.getParsedTransaction(txSig, {
       maxSupportedTransactionVersion: 0,
       commitment: 'confirmed',
     });
-    if (!tx || tx.meta?.err) return false;
+    if (!tx || tx.meta?.err) return { ok: false, asset: null };
 
     const accounts = tx.transaction.message.accountKeys;
 
     // 1. Program must be in the account list
     const hasProgram = accounts.some((k) => k.pubkey.toBase58() === PROGRAM_ID);
-    if (!hasProgram) return false;
+    if (!hasProgram) return { ok: false, asset: null };
 
     // 2. minter must be an actual signer of this transaction
     const minterIsSigner = accounts.some(
       (k) => k.pubkey.toBase58() === minter && k.signer,
     );
-    if (!minterIsSigner) return false;
+    if (!minterIsSigner) return { ok: false, asset: null };
 
-    // 3. momentPda must appear in the account list (proves this tx targeted this moment)
+    // 3. momentPda must appear in the account list
     if (momentPda) {
       const hasPda = accounts.some((k) => k.pubkey.toBase58() === momentPda);
-      if (!hasPda) return false;
+      if (!hasPda) return { ok: false, asset: null };
     }
 
-    return true;
+    // 4. asset (the freshly created Core NFT) must be a signer in this tx
+    if (assetAddress) {
+      const assetIsSigner = accounts.some(
+        (k) => k.pubkey.toBase58() === assetAddress && k.signer,
+      );
+      if (!assetIsSigner) return { ok: false, asset: null };
+    }
+
+    return { ok: true, asset: assetAddress };
   } catch {
-    return false;
+    return { ok: false, asset: null };
   }
-}
-
-/**
- * Mints a real 1/1 SPL token NFT to the minter's wallet.
- * Uses only @solana/spl-token (no Metaplex/mpl-core dependency).
- * Returns the mint address (= the NFT's unique on-chain ID).
- */
-async function mintSplNft(minterAddress: string): Promise<string> {
-  const keeperKp = loadKeeperKp();
-  if (!keeperKp) throw new Error('KEEPER_PRIVATE_KEY not set');
-
-  const conn = new Connection(RPC, 'confirmed');
-  const minterPubkey = new PublicKey(minterAddress);
-
-  // 1. Create a new mint with 0 decimals, keeper is mint authority
-  const mint = await createMint(conn, keeperKp, keeperKp.publicKey, null, 0);
-
-  // 2. Create associated token account for the minter
-  const tokenAccount = await getOrCreateAssociatedTokenAccount(
-    conn, keeperKp, mint, minterPubkey,
-  );
-
-  // 3. Mint exactly 1 token to the minter
-  await mintTo(conn, keeperKp, mint, tokenAccount.address, keeperKp, 1);
-
-  // 4. Remove mint authority — fixed supply of 1, truly non-fungible
-  await setAuthority(conn, keeperKp, mint, keeperKp, AuthorityType.MintTokens, null);
-
-  return mint.toBase58();
 }
 
 export async function POST(req: NextRequest) {
   const body = await req.json();
-  const { momentId, minter, txSig, messageSignature, messageTs } = body;
+  const { momentId, minter, txSig, assetAddress, messageSignature, messageTs } = body;
 
   if (!momentId || !minter) {
     return NextResponse.json({ error: 'Missing momentId or minter' }, { status: 400 });
@@ -152,6 +119,9 @@ export async function POST(req: NextRequest) {
   const needsOnchainVerify =
     Boolean(moment.momentPda) && moment.onchainStatus !== 'FAILED';
 
+  // Holds the on-chain NFT asset address once verified (on-chain path only).
+  let onchainAsset: string | null = null;
+
   if (needsOnchainVerify) {
     if (!txSig || txSig.startsWith('offline-') || txSig.startsWith('pending-')) {
       return NextResponse.json(
@@ -159,13 +129,20 @@ export async function POST(req: NextRequest) {
         { status: 400 },
       );
     }
-    const txOk = await verifyTx(txSig, minter, moment.momentPda);
-    if (!txOk) {
+    if (!assetAddress) {
       return NextResponse.json(
-        { error: 'Transaction verification failed: invalid signer, PDA, or program' },
+        { error: 'assetAddress required for on-chain mint' },
         { status: 400 },
       );
     }
+    const { ok, asset } = await verifyTx(txSig, minter, moment.momentPda, assetAddress);
+    if (!ok) {
+      return NextResponse.json(
+        { error: 'Transaction verification failed: invalid signer, asset, PDA, or program' },
+        { status: 400 },
+      );
+    }
+    onchainAsset = asset;
   } else {
     // DB-only path: require an off-chain wallet message signature
     if (!messageSignature || !messageTs) {
@@ -189,24 +166,15 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  // ── 서버사이드 NFT 발행 (mpl-core 실패 시 DB-only로 fallback) ──────────
-  let assetId: string;
-  const nftName = moment.isPredictionReward
-    ? `Momento Oracle #${moment.id}`
-    : moment.kind === 'GOAL'
-    ? `Momento Goal #${moment.id}`
-    : `Momento Result #${moment.id}`;
-  const base = (
-    process.env.PUBLIC_BASE_URL ||
-    (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : '')
-  ).replace(/\/$/, '');
-  const metadataUri = `${base}/api/moments/${moment.id}/metadata`;
-  try {
-    assetId = await mintSplNft(minter);
-  } catch (err: any) {
-    console.error('[mint] On-chain mint failed, falling back to DB-only:', err.message);
-    assetId = `db-${moment.id}-${minter.slice(0, 8)}-${Date.now()}`;
-  }
+  // ── NFT asset id 결정 ────────────────────────────────────────────────
+  // 온체인 경로: mint_moment ix가 이미 지갑 트랜잭션 안에서 Metaplex Core
+  //   asset을 생성함. 서버는 그 asset 주소를 검증 후 그대로 기록한다.
+  //   (서버가 별도로 토큰을 발행하지 않음 — 진짜 온체인 민팅.)
+  // DB-only 경로: momentPda가 없거나 온체인 open이 실패한 moment. 메시지
+  //   서명으로 지갑 소유만 증명하고 오프체인 컬렉션 레코드로 남긴다.
+  const assetId = onchainAsset
+    ? onchainAsset
+    : `db-${moment.id}-${minter.slice(0, 8)}-${Date.now()}`;
 
   // ── DB 기록 — unique 위반(P2002)도 409로 처리(race condition 대비) ────
   try {
