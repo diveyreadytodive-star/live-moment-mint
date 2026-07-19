@@ -23,5 +23,10 @@
   },
   "dependencies": {
     "@prisma/client": "5.22.0"
+  },
+  "pnpm": {
+    "overrides": {
+      "@noble/hashes": "1.8.0"
+    }
   }
 }
