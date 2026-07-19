@@ -67,7 +67,7 @@ async function main() {
   console.log('=== Momento Keeper starting ===');
 
   const secretBytes = KEEPER_PRIVATE_KEY
-    ? JSON.parse(KEEPER_PRIVATE_KEY)
+    ? JSON.parse(KEEPER_PRIVATE_KEY.replace(/\s/g, ''))
     : JSON.parse(fs.readFileSync(path.resolve(KEEPER_WALLET_PATH)).toString());
   const keypair = anchor.web3.Keypair.fromSecretKey(Uint8Array.from(secretBytes));
   console.log(`Keeper wallet: ${keypair.publicKey.toBase58()}`);
