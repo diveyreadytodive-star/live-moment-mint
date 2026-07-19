@@ -87,7 +87,7 @@ export async function openGoalWindow(
   // Insert moment first to get the auto-incremented ID
   const moment = await (db as any).moment.create({
     data: {
-      fixtureId:    event.fixtureId,
+      fixtureId:    fixture.id,  // use DB fixture ID (fd-XXXXX), not raw TxLine ID
       kind:         'GOAL',
       seq:          event.seq,
       tsEvent:      Math.floor(event.ts / 1000),
@@ -200,7 +200,7 @@ export async function openResultWindow(
 
   const moment = await (db as any).moment.create({
     data: {
-      fixtureId: event.fixtureId,
+      fixtureId: fixture.id,  // use DB fixture ID (fd-XXXXX), not raw TxLine ID
       kind:      'RESULT',
       seq:       event.seq,
       tsEvent:   Math.floor(event.ts / 1000),

@@ -1,0 +1,36 @@
+FROM node:20-slim AS base
+WORKDIR /app
+
+# Install pnpm
+RUN corepack enable && corepack prepare pnpm@10.26.0 --activate
+
+# Install system deps for Prisma
+RUN apt-get update -y && apt-get install -y openssl ca-certificates && rm -rf /var/lib/apt/lists/*
+
+# Copy workspace manifests
+COPY package.json pnpm-workspace.yaml pnpm-lock.yaml ./
+COPY packages/shared/package.json   ./packages/shared/
+COPY packages/txline/package.json   ./packages/txline/
+COPY packages/image/package.json    ./packages/image/
+COPY apps/keeper/package.json       ./apps/keeper/
+COPY prisma/                        ./prisma/
+
+# Install all dependencies
+RUN pnpm install --frozen-lockfile
+
+# Copy source
+COPY packages/shared/   ./packages/shared/
+COPY packages/txline/   ./packages/txline/
+COPY packages/image/    ./packages/image/
+COPY apps/keeper/       ./apps/keeper/
+
+# Build packages + keeper
+RUN pnpm --filter @momento/shared build
+RUN pnpm --filter @momento/txline build
+RUN pnpm --filter @momento/image build
+RUN pnpm exec prisma generate
+RUN pnpm --filter keeper build
+
+# Run
+ENV NODE_ENV=production
+CMD ["node", "apps/keeper/dist/index.js"]

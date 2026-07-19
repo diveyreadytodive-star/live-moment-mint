@@ -16,6 +16,16 @@ const FLAG: Record<string, string> = {
 };
 const flag = (name: string) => FLAG[name] ?? '🏳';
 
+const STAGE_LABEL: Record<string, string> = {
+  GROUP_STAGE:    'Group Stage',
+  LAST_32:        'Round of 32',
+  LAST_16:        'Round of 16',
+  QUARTER_FINALS: 'Quarter-final',
+  SEMI_FINALS:    'Semi-final',
+  THIRD_PLACE:    '3rd Place',
+  FINAL:          'Final',
+};
+
 interface FixtureAPI {
   id: string;
   p1Name: string;
@@ -26,6 +36,7 @@ interface FixtureAPI {
   liveScoreP2: number | null;
   liveMinute: number | null;
   statusId: number | null;
+  stage: string | null;
   moments: (Moment & { _count?: { mints: number } })[];
 }
 
@@ -91,7 +102,9 @@ export default function MatchPage() {
 
         {/* Match hero header */}
         <div className="match-hero">
-          <div className="match-hero-competition">World Cup 2026</div>
+          <div className="match-hero-competition">
+            World Cup 2026{fixture.stage ? ` · ${STAGE_LABEL[fixture.stage] ?? fixture.stage}` : ''}
+          </div>
           <div className="match-hero-teams">
             <div className={`match-hero-team${isEnded && p1Wins ? ' winner' : ''}`}>
               <span className="flag">{flag(fixture.p1Name)}</span>

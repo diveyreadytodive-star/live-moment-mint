@@ -1,5 +1,6 @@
 generator client {
-  provider = "prisma-client-js"
+  provider      = "prisma-client-js"
+  binaryTargets = ["native", "rhel-openssl-1.0.x", "rhel-openssl-3.0.x", "linux-arm64-openssl-3.0.x"]
 }
 
 datasource db {
@@ -23,6 +24,9 @@ model Fixture {
   liveScoreP2  Int?
   liveMinute   Int?
   statusId     Int?
+  // Football-Data.org & TxLine cross-reference
+  txlineId     String?  @unique  // TxLine FixtureId — set when TxLine has live coverage
+  stage        String?           // GROUP_STAGE | LAST_16 | QUARTER_FINALS | SEMI_FINALS | THIRD_PLACE | FINAL
 
   moments     Moment[]
   predictions Prediction[]

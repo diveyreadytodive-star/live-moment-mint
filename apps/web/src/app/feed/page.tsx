@@ -31,6 +31,16 @@ interface MomentSummary {
   _count?: { mints: number };
 }
 
+const STAGE_LABEL: Record<string, string> = {
+  GROUP_STAGE:    'Group Stage',
+  LAST_32:        'Round of 32',
+  LAST_16:        'Round of 16',
+  QUARTER_FINALS: 'Quarter-final',
+  SEMI_FINALS:    'Semi-final',
+  THIRD_PLACE:    '3rd Place',
+  FINAL:          'Final',
+};
+
 interface FixtureAPI {
   id: string;
   p1Name: string;
@@ -41,6 +51,7 @@ interface FixtureAPI {
   liveScoreP2: number | null;
   liveMinute: number | null;
   statusId: number | null;
+  stage: string | null;
   moments: MomentSummary[];
 }
 
@@ -146,8 +157,15 @@ function MatchRow({ fixture, now }: MatchRowProps) {
   const p1Wins = scoreP1 !== null && scoreP2 !== null && scoreP1 > scoreP2;
   const p2Wins = scoreP1 !== null && scoreP2 !== null && scoreP2 > scoreP1;
 
+  const stageLabel = fixture.stage ? STAGE_LABEL[fixture.stage] ?? null : null;
+
   return (
     <a href={`/match/${fixture.id}`} className="match-row" style={{ display: 'grid' }}>
+      {stageLabel && (
+        <div style={{ gridColumn: '1/-1', fontSize: 9, fontWeight: 800, letterSpacing: 2, textTransform: 'uppercase', color: 'var(--gold)', marginBottom: 4 }}>
+          {stageLabel}
+        </div>
+      )}
       <div className="match-row-teams">
         <div className={`match-row-team ${ended && p1Wins ? 'winner' : ended && p2Wins ? 'loser' : ''}`}>
           <span className="flag">{flag(fixture.p1Name)}</span>
@@ -225,9 +243,13 @@ export default function FeedPage() {
     return () => { clearInterval(poll); clearInterval(tick); es.close(); };
   }, [fetchAll]);
 
+  const KO_STAGES = new Set(['QUARTER_FINALS','SEMI_FINALS','THIRD_PLACE','FINAL']);
   const live     = fixtures.filter(f => f.isLive);
   const ended    = fixtures.filter(f => !f.isLive && isEnded(f));
   const upcoming = fixtures.filter(f => !f.isLive && !isEnded(f));
+  // Separate KO from group-stage in ended section
+  const endedKO    = ended.filter(f => f.stage && KO_STAGES.has(f.stage));
+  const endedGroup = ended.filter(f => !f.stage || !KO_STAGES.has(f.stage));
   const hasAny   = fixtures.length > 0;
 
   // Live drops: open moments from all fixtures, newest first
@@ -339,11 +361,19 @@ export default function FeedPage() {
         </div>
       )}
 
-      {/* ENDED */}
-      {ended.length > 0 && (
+      {/* KNOCKOUT STAGE */}
+      {endedKO.length > 0 && (
         <div className="match-section">
-          <div className="section-head">Ended</div>
-          {ended.map(f => <MatchRow key={f.id} fixture={f} now={now} />)}
+          <div className="section-head">Knockout Stage</div>
+          {endedKO.map(f => <MatchRow key={f.id} fixture={f} now={now} />)}
+        </div>
+      )}
+
+      {/* GROUP STAGE */}
+      {endedGroup.length > 0 && (
+        <div className="match-section">
+          <div className="section-head">Group Stage</div>
+          {endedGroup.map(f => <MatchRow key={f.id} fixture={f} now={now} />)}
         </div>
       )}
 
