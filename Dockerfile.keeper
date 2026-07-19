@@ -16,7 +16,7 @@ COPY apps/keeper/package.json       ./apps/keeper/
 COPY prisma/                        ./prisma/
 
 # Install all dependencies
-RUN pnpm install --frozen-lockfile
+RUN pnpm install --no-frozen-lockfile
 
 # Copy source
 COPY packages/shared/   ./packages/shared/
