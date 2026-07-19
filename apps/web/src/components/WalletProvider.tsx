@@ -6,6 +6,10 @@ import { solanaDevnet } from '@reown/appkit/networks';
 
 const solanaAdapter = new SolanaAdapter();
 
+const APP_URL = typeof window !== 'undefined'
+  ? window.location.origin
+  : 'https://live-moment-mint.vercel.app';
+
 createAppKit({
   adapters: [solanaAdapter],
   networks: [solanaDevnet],
@@ -13,8 +17,8 @@ createAppKit({
   metadata: {
     name: 'Momento',
     description: 'Mint live football moments as NFTs',
-    url: 'https://live-moment-mint.vercel.app',
-    icons: ['https://live-moment-mint.vercel.app/favicon.ico'],
+    url: APP_URL,
+    icons: [`${APP_URL}/favicon.ico`],
   },
   features: {
     analytics: false,
