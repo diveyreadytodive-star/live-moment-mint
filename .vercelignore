@@ -28,7 +28,7 @@ js
 karma-forest-hub
 karmaforest
 lecture
-lib
+/lib
 magic-js
 magic-of-solidity
 margin-call-challenge
