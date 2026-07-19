@@ -26,6 +26,7 @@ const {
   TXLINE_API_ORIGIN    = 'https://txline-dev.txodds.com',
   TXLINE_API_TOKEN     = '',
   KEEPER_WALLET_PATH   = './devnet-keeper.json',
+  KEEPER_PRIVATE_KEY   = '',   // JSON byte array string "[1,2,3,...]" — takes priority over file
   PUBLIC_BASE_URL      = 'http://localhost:3000',
   REPLAY_MODE          = '',
   FOOTBALL_DATA_TOKEN  = '',
@@ -65,8 +66,10 @@ async function syncAndMatch(client: TxLineClient) {
 async function main() {
   console.log('=== Momento Keeper starting ===');
 
-  const raw = fs.readFileSync(path.resolve(KEEPER_WALLET_PATH));
-  const keypair = anchor.web3.Keypair.fromSecretKey(Uint8Array.from(JSON.parse(raw.toString())));
+  const secretBytes = KEEPER_PRIVATE_KEY
+    ? JSON.parse(KEEPER_PRIVATE_KEY)
+    : JSON.parse(fs.readFileSync(path.resolve(KEEPER_WALLET_PATH)).toString());
+  const keypair = anchor.web3.Keypair.fromSecretKey(Uint8Array.from(secretBytes));
   console.log(`Keeper wallet: ${keypair.publicKey.toBase58()}`);
 
   const jwt = await getGuestJwt(TXLINE_API_ORIGIN);

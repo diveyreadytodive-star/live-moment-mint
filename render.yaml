@@ -18,8 +18,8 @@ services:
         sync: false
       - key: PUBLIC_BASE_URL
         sync: false
-      - key: KEEPER_WALLET_PATH
-        value: /app/keeper-wallet.json
+      - key: KEEPER_PRIVATE_KEY
+        sync: false
       - key: SOLANA_RPC_URL
         sync: false
       - key: MOMENTO_PROGRAM_ID
