@@ -18,8 +18,8 @@ createAppKit({
   },
   features: {
     analytics: false,
-    email: false,
-    socials: false,
+    email: true,
+    socials: ['google', 'github', 'discord', 'x'],
   },
 });
 
