@@ -72,6 +72,12 @@ async function main() {
   const keypair = anchor.web3.Keypair.fromSecretKey(Uint8Array.from(secretBytes));
   console.log(`Keeper wallet: ${keypair.publicKey.toBase58()}`);
 
+  // ── Health check server (start immediately so Render detects port) ──────────
+  const port = Number(process.env.PORT ?? 3000);
+  http.createServer((_, res) => { res.writeHead(200); res.end('OK'); }).listen(port, () => {
+    console.log(`[keeper] Health check server listening on :${port}`);
+  });
+
   const jwt = await getGuestJwt(TXLINE_API_ORIGIN);
   const client = new TxLineClient(TXLINE_API_ORIGIN, jwt, TXLINE_API_TOKEN);
 
@@ -141,11 +147,6 @@ async function main() {
   process.on('SIGINT',  () => { stop(); db.$disconnect(); process.exit(0); });
   process.on('SIGTERM', () => { stop(); db.$disconnect(); process.exit(0); });
   console.log('Listening for live events. Ctrl+C to stop.');
-
-  const port = Number(process.env.PORT ?? 3000);
-  http.createServer((_, res) => { res.writeHead(200); res.end('OK'); }).listen(port, () => {
-    console.log(`[keeper] Health check server listening on :${port}`);
-  });
 
   await new Promise(() => {});
 }
