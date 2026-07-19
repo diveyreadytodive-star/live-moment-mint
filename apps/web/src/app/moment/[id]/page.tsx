@@ -9,16 +9,12 @@ import {
   Transaction,
   TransactionInstruction,
   PublicKey,
-  Keypair,
-  SystemProgram,
 } from '@solana/web3.js';
 import bs58 from 'bs58';
 
 const SOLANA_RPC = process.env.NEXT_PUBLIC_SOLANA_RPC_URL || 'https://api.devnet.solana.com';
 
 const PROGRAM_ID = new PublicKey('CL6e7FZkgQ6GLwYbmcsz4kwi2hZzzWoP7ckWgSbvF7ja');
-// Metaplex Core program — the on-chain mint_moment ix CPIs into this to create the asset.
-const MPL_CORE_PROGRAM_ID = new PublicKey('CoREENxT6tW1HoK8ypY1SxRMZTcVPm7R94rH4PZNhX7d');
 const MINT_DISCRIMINATOR = Buffer.from([157, 243, 211, 63, 10, 118, 217, 42]);
 
 interface MomentDetail {
@@ -71,26 +67,21 @@ export default function MomentPage() {
     setMintError(null);
     try {
       let txSig: string | undefined;
-      let assetAddress: string | undefined;
       let messageSignature: string | undefined;
       let messageTs: number | undefined;
 
       if (moment.momentPda) {
-        // Fresh keypair for the new Metaplex Core asset. It must sign the tx
-        // because the on-chain `mint_moment` ix declares `asset` as a Signer,
-        // and mpl-core's CreateV1 CPI requires the asset account to sign.
-        const assetKp = Keypair.generate();
-
-        // Account order MUST match the Rust `MintMoment` struct:
-        //   moment (w), minter (signer), asset (signer, w), mpl_core_program, system_program
+        // The deployed program's `mint_moment` takes 2 accounts (moment, minter)
+        // and records the mint on-chain (increments mint_count, emits MintEvent).
+        // NOTE: the deployed build does not yet create a Metaplex Core asset — that
+        // requires redeploying the mpl-core CPI version (see docs/REDEPLOY_GUIDE.md).
+        // Until then this produces a real on-chain mint transaction (verifiable on
+        // Explorer) without a separate NFT asset account.
         const ix = new TransactionInstruction({
           programId: PROGRAM_ID,
           keys: [
             { pubkey: new PublicKey(moment.momentPda), isSigner: false, isWritable: true },
-            { pubkey: publicKey, isSigner: true, isWritable: true },
-            { pubkey: assetKp.publicKey, isSigner: true, isWritable: true },
-            { pubkey: MPL_CORE_PROGRAM_ID, isSigner: false, isWritable: false },
-            { pubkey: SystemProgram.programId, isSigner: false, isWritable: false },
+            { pubkey: publicKey, isSigner: true, isWritable: false },
           ],
           data: MINT_DISCRIMINATOR,
         });
@@ -98,12 +89,8 @@ export default function MomentPage() {
         const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash();
         tx.recentBlockhash = blockhash;
         tx.feePayer = publicKey;
-        // Asset keypair co-signs; wallet adds the minter signature on send.
-        tx.partialSign(assetKp);
         txSig = await walletProvider.sendTransaction(tx, connection);
         await connection.confirmTransaction({ signature: txSig, blockhash, lastValidBlockHeight }, 'confirmed');
-        // Surface the on-chain asset address so the server records the real NFT id.
-        assetAddress = assetKp.publicKey.toBase58();
       } else {
         messageTs = Math.floor(Date.now() / 1000);
         const message = `Momento mint authorization\nmoment:${moment.id}\nwallet:${publicKey.toBase58()}\nts:${messageTs}`;
@@ -114,7 +101,7 @@ export default function MomentPage() {
       const res = await fetch('/api/mint', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ momentId: moment.id, minter: publicKey.toBase58(), txSig, assetAddress, messageSignature, messageTs }),
+        body: JSON.stringify({ momentId: moment.id, minter: publicKey.toBase58(), txSig, messageSignature, messageTs }),
       });
       if (!res.ok) {
         const body = await res.json().catch(() => ({}));
