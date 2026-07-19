@@ -2,10 +2,12 @@
 
 import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
-import { useWallet, useConnection } from '@solana/wallet-adapter-react';
-import { useWalletModal } from '@solana/wallet-adapter-react-ui';
-import { Transaction, TransactionInstruction, PublicKey } from '@solana/web3.js';
+import { useAppKit, useAppKitAccount, useAppKitProvider } from '@reown/appkit/react';
+import type { Provider } from '@reown/appkit-adapter-solana/react';
+import { Connection, Transaction, TransactionInstruction, PublicKey } from '@solana/web3.js';
 import bs58 from 'bs58';
+
+const SOLANA_RPC = process.env.NEXT_PUBLIC_SOLANA_RPC_URL || 'https://api.devnet.solana.com';
 
 const PROGRAM_ID = new PublicKey('CL6e7FZkgQ6GLwYbmcsz4kwi2hZzzWoP7ckWgSbvF7ja');
 const MINT_DISCRIMINATOR = Buffer.from([157, 243, 211, 63, 10, 118, 217, 42]);
@@ -26,9 +28,11 @@ interface MomentDetail {
 
 export default function MomentPage() {
   const { id } = useParams();
-  const { publicKey, sendTransaction, signMessage, connected } = useWallet();
-  const { setVisible: openWalletModal } = useWalletModal();
-  const { connection } = useConnection();
+  const { open } = useAppKit();
+  const { address, isConnected: connected } = useAppKitAccount();
+  const { walletProvider } = useAppKitProvider<Provider>('solana');
+  const connection = new Connection(SOLANA_RPC, 'confirmed');
+  const publicKey = address ? new PublicKey(address) : null;
 
   const [moment, setMoment] = useState<MomentDetail | null>(null);
   const [timeLeft, setTimeLeft] = useState(0);
@@ -74,15 +78,12 @@ export default function MomentPage() {
         const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash();
         tx.recentBlockhash = blockhash;
         tx.feePayer = publicKey;
-        txSig = await sendTransaction(tx, connection);
+        txSig = await walletProvider.sendTransaction(tx, connection);
         await connection.confirmTransaction({ signature: txSig, blockhash, lastValidBlockHeight }, 'confirmed');
       } else {
-        if (!signMessage) {
-          throw new Error('이 지갑은 서명 인증을 지원하지 않습니다. Phantom 또는 Solflare를 사용하세요.');
-        }
         messageTs = Math.floor(Date.now() / 1000);
         const message = `Momento mint authorization\nmoment:${moment.id}\nwallet:${publicKey.toBase58()}\nts:${messageTs}`;
-        const sigBytes = await signMessage(new TextEncoder().encode(message));
+        const sigBytes = await walletProvider.signMessage(new TextEncoder().encode(message));
         messageSignature = bs58.encode(sigBytes);
       }
 
@@ -213,7 +214,7 @@ export default function MomentPage() {
             <button
               className="moment-hero-mint-btn"
               style={{ background: 'var(--accent-blue)', color: '#fff' }}
-              onClick={() => openWalletModal(true)}
+              onClick={() => open()}
             >
               Connect Wallet
             </button>

@@ -1,8 +1,9 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useWallet } from '@solana/wallet-adapter-react';
-import { useWalletModal } from '@solana/wallet-adapter-react-ui';
+import { useAppKit, useAppKitAccount, useAppKitProvider } from '@reown/appkit/react';
+import type { Provider } from '@reown/appkit-adapter-solana/react';
+import { PublicKey } from '@solana/web3.js';
 import bs58 from 'bs58';
 
 type Outcome = 'HOME' | 'DRAW' | 'AWAY';
@@ -36,8 +37,11 @@ export function PredictionPanel({
   liveScoreP2,
   rewardMomentId,
 }: Props) {
-  const { publicKey, signMessage, connected } = useWallet();
-  const { setVisible: openWalletModal } = useWalletModal();
+  const { open } = useAppKit();
+  const { address, isConnected: connected } = useAppKitAccount();
+  const { walletProvider } = useAppKitProvider<Provider>('solana');
+  const publicKey = address ? new PublicKey(address) : null;
+  const signMessage = walletProvider?.signMessage?.bind(walletProvider);
 
   const [myPrediction, setMyPrediction]   = useState<Outcome | null>(null);
   const [fixtureOutcome, setFixtureOutcome] = useState<Outcome | null>(null);
@@ -148,7 +152,7 @@ export function PredictionPanel({
             Connect wallet to predict and win special NFTs
           </div>
           <button
-            onClick={() => openWalletModal(true)}
+            onClick={() => open()}
             style={{
               fontFamily: 'var(--font-display)', fontSize: 12, fontWeight: 800,
               letterSpacing: 1, padding: '10px 24px', borderRadius: 'var(--radius-sm)',
