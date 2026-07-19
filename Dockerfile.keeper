@@ -8,7 +8,7 @@ RUN corepack enable && corepack prepare pnpm@10.26.0 --activate
 RUN apt-get update -y && apt-get install -y openssl ca-certificates && rm -rf /var/lib/apt/lists/*
 
 # Copy workspace manifests
-COPY package.json pnpm-workspace.yaml pnpm-lock.yaml ./
+COPY package.json pnpm-workspace.yaml pnpm-lock.yaml tsconfig.base.json ./
 COPY packages/shared/package.json   ./packages/shared/
 COPY packages/txline/package.json   ./packages/txline/
 COPY packages/image/package.json    ./packages/image/
