@@ -132,19 +132,26 @@ async function main() {
     console.log('   https://explorer.solana.com/tx/' + sig + '?cluster=devnet');
   }
 
-  // ── 2. mint_moment (5 accounts, asset keypair co-signs) ────────────────────
+  // ── 2. mint_moment ─────────────────────────────────────────────────────────
+  // MPL_CORE_MINT=1 → 5-account layout that creates a real Metaplex Core asset
+  //                   (only works once the mpl-core CPI program is deployed).
+  // default          → 2-account layout that records the mint on-chain without
+  //                   a separate asset account (works with the current program).
+  const MPL_CORE_MINT = process.env.MPL_CORE_MINT === '1';
   const asset = Keypair.generate();
-  const mintIx = new TransactionInstruction({
-    programId: PROGRAM_ID,
-    keys: [
-      { pubkey: momentPda,          isSigner: false, isWritable: true },
-      { pubkey: wallet.publicKey,   isSigner: true,  isWritable: true },
-      { pubkey: asset.publicKey,    isSigner: true,  isWritable: true },
-      { pubkey: MPL_CORE_PROGRAM,   isSigner: false, isWritable: false },
-      { pubkey: SystemProgram.programId, isSigner: false, isWritable: false },
-    ],
-    data: MINT_DISC,
-  });
+  const mintKeys = MPL_CORE_MINT
+    ? [
+        { pubkey: momentPda,          isSigner: false, isWritable: true },
+        { pubkey: wallet.publicKey,   isSigner: true,  isWritable: true },
+        { pubkey: asset.publicKey,    isSigner: true,  isWritable: true },
+        { pubkey: MPL_CORE_PROGRAM,   isSigner: false, isWritable: false },
+        { pubkey: SystemProgram.programId, isSigner: false, isWritable: false },
+      ]
+    : [
+        { pubkey: momentPda,          isSigner: false, isWritable: true },
+        { pubkey: wallet.publicKey,   isSigner: true,  isWritable: false },
+      ];
+  const mintIx = new TransactionInstruction({ programId: PROGRAM_ID, keys: mintKeys, data: MINT_DISC });
 
   let mintSig: string;
   {
@@ -152,28 +159,31 @@ async function main() {
     const { blockhash, lastValidBlockHeight } = await conn.getLatestBlockhash();
     tx.recentBlockhash = blockhash;
     tx.feePayer = wallet.publicKey;
-    tx.sign(wallet, asset); // both minter and asset sign
+    if (MPL_CORE_MINT) tx.sign(wallet, asset); else tx.sign(wallet);
     mintSig = await conn.sendRawTransaction(tx.serialize());
     await conn.confirmTransaction({ signature: mintSig, blockhash, lastValidBlockHeight }, 'confirmed');
     console.log('\n✅ mint_moment tx:', mintSig);
     console.log('   https://explorer.solana.com/tx/' + mintSig + '?cluster=devnet');
-    console.log('   Asset:', asset.publicKey.toBase58());
-    console.log('   https://explorer.solana.com/address/' + asset.publicKey.toBase58() + '?cluster=devnet');
+    if (MPL_CORE_MINT) {
+      console.log('   Asset:', asset.publicKey.toBase58());
+      console.log('   https://explorer.solana.com/address/' + asset.publicKey.toBase58() + '?cluster=devnet');
+    }
   }
 
-  // ── 3. Verify the asset is a real mpl-core NFT ─────────────────────────────
-  const info = await conn.getAccountInfo(asset.publicKey);
-  if (!info) {
-    console.error('\n❌ Asset account not found — mint may have failed.');
-    process.exit(1);
-  }
-  const owner = info.owner.toBase58();
-  const isCore = owner === MPL_CORE_PROGRAM.toBase58();
+  // ── 3. Verify ──────────────────────────────────────────────────────────────
   console.log('\n── Verification ──');
-  console.log('Asset owner:', owner);
-  console.log(isCore
-    ? '🎉 SUCCESS — asset is owned by Metaplex Core. Real on-chain NFT minted.'
-    : '⚠️  Asset owner is NOT mpl-core (' + owner + '). Something is off.');
+  if (MPL_CORE_MINT) {
+    const info = await conn.getAccountInfo(asset.publicKey);
+    if (!info) { console.error('❌ Asset account not found — mint may have failed.'); process.exit(1); }
+    const owner = info.owner.toBase58();
+    const isCore = owner === MPL_CORE_PROGRAM.toBase58();
+    console.log('Asset owner:', owner);
+    if (isCore) { console.log('🎉 SUCCESS — asset owned by Metaplex Core. Real on-chain NFT minted.'); }
+    else { console.log('⚠️  Asset owner is NOT mpl-core (' + owner + ').'); process.exit(2); }
+  } else {
+    console.log('✅ On-chain mint_moment transaction confirmed (mint_count + MintEvent).');
+    console.log('   (No separate NFT asset — set MPL_CORE_MINT=1 after redeploying the mpl-core CPI program.)');
+  }
 
   console.log('\nFresh moment is OPEN for 1 hour:');
   console.log('  fixtureId =', fixtureId);

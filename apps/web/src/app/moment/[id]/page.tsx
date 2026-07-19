@@ -9,13 +9,24 @@ import {
   Transaction,
   TransactionInstruction,
   PublicKey,
+  Keypair,
+  SystemProgram,
 } from '@solana/web3.js';
 import bs58 from 'bs58';
 
 const SOLANA_RPC = process.env.NEXT_PUBLIC_SOLANA_RPC_URL || 'https://api.devnet.solana.com';
 
-const PROGRAM_ID = new PublicKey('CL6e7FZkgQ6GLwYbmcsz4kwi2hZzzWoP7ckWgSbvF7ja');
+const PROGRAM_ID = new PublicKey(
+  process.env.NEXT_PUBLIC_MOMENTO_PROGRAM_ID || 'CL6e7FZkgQ6GLwYbmcsz4kwi2hZzzWoP7ckWgSbvF7ja',
+);
+const MPL_CORE_PROGRAM_ID = new PublicKey('CoREENxT6tW1HoK8ypY1SxRMZTcVPm7R94rH4PZNhX7d');
 const MINT_DISCRIMINATOR = Buffer.from([157, 243, 211, 63, 10, 118, 217, 42]);
+
+// When the mpl-core CPI program is redeployed, set NEXT_PUBLIC_MPL_CORE_MINT=1 to
+// switch the mint_moment ix to the 5-account layout that creates a real NFT asset.
+// Until then (current deployed program), the 2-account layout is used, which
+// records a real on-chain mint transaction without a separate asset account.
+const MPL_CORE_MINT = process.env.NEXT_PUBLIC_MPL_CORE_MINT === '1';
 
 interface MomentDetail {
   id: number;
@@ -67,28 +78,48 @@ export default function MomentPage() {
     setMintError(null);
     try {
       let txSig: string | undefined;
+      let assetAddress: string | undefined;
       let messageSignature: string | undefined;
       let messageTs: number | undefined;
 
       if (moment.momentPda) {
-        // The deployed program's `mint_moment` takes 2 accounts (moment, minter)
-        // and records the mint on-chain (increments mint_count, emits MintEvent).
-        // NOTE: the deployed build does not yet create a Metaplex Core asset — that
-        // requires redeploying the mpl-core CPI version (see docs/REDEPLOY_GUIDE.md).
-        // Until then this produces a real on-chain mint transaction (verifiable on
-        // Explorer) without a separate NFT asset account.
-        const ix = new TransactionInstruction({
-          programId: PROGRAM_ID,
-          keys: [
+        // Two supported layouts, switched by NEXT_PUBLIC_MPL_CORE_MINT:
+        //  • MPL_CORE_MINT=1 (after redeploying the mpl-core CPI program):
+        //      5 accounts (moment, minter, asset[signer], mpl_core_program, system_program)
+        //      → creates a real Metaplex Core NFT asset owned by the minter.
+        //  • default (current deployed program):
+        //      2 accounts (moment, minter) → records a real on-chain mint tx
+        //      (mint_count + MintEvent), verifiable on Explorer, no asset account.
+        let ixKeys;
+        let assetKp: Keypair | null = null;
+        if (MPL_CORE_MINT) {
+          assetKp = Keypair.generate();
+          ixKeys = [
+            { pubkey: new PublicKey(moment.momentPda), isSigner: false, isWritable: true },
+            { pubkey: publicKey, isSigner: true, isWritable: true },
+            { pubkey: assetKp.publicKey, isSigner: true, isWritable: true },
+            { pubkey: MPL_CORE_PROGRAM_ID, isSigner: false, isWritable: false },
+            { pubkey: SystemProgram.programId, isSigner: false, isWritable: false },
+          ];
+        } else {
+          ixKeys = [
             { pubkey: new PublicKey(moment.momentPda), isSigner: false, isWritable: true },
             { pubkey: publicKey, isSigner: true, isWritable: false },
-          ],
+          ];
+        }
+        const ix = new TransactionInstruction({
+          programId: PROGRAM_ID,
+          keys: ixKeys,
           data: MINT_DISCRIMINATOR,
         });
         const tx = new Transaction().add(ix);
         const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash();
         tx.recentBlockhash = blockhash;
         tx.feePayer = publicKey;
+        if (assetKp) {
+          tx.partialSign(assetKp);
+          assetAddress = assetKp.publicKey.toBase58();
+        }
         txSig = await walletProvider.sendTransaction(tx, connection);
         await connection.confirmTransaction({ signature: txSig, blockhash, lastValidBlockHeight }, 'confirmed');
       } else {
@@ -101,7 +132,7 @@ export default function MomentPage() {
       const res = await fetch('/api/mint', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ momentId: moment.id, minter: publicKey.toBase58(), txSig, messageSignature, messageTs }),
+        body: JSON.stringify({ momentId: moment.id, minter: publicKey.toBase58(), txSig, assetAddress, messageSignature, messageTs }),
       });
       if (!res.ok) {
         const body = await res.json().catch(() => ({}));

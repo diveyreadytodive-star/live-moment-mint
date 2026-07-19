@@ -26,6 +26,7 @@ async function verifyTx(
   txSig: string,
   minter: string,
   momentPda: string | null,
+  assetAddress: string | null,
 ): Promise<boolean> {
   try {
     const conn = new Connection(RPC, 'confirmed');
@@ -53,6 +54,16 @@ async function verifyTx(
       if (!hasPda) return false;
     }
 
+    // 4. (post-redeploy) when the client created a Metaplex Core asset, it must
+    //    appear as a signer in this tx. For the current 2-account program the
+    //    client sends no assetAddress and this check is skipped.
+    if (assetAddress) {
+      const assetIsSigner = accounts.some(
+        (k) => k.pubkey.toBase58() === assetAddress && k.signer,
+      );
+      if (!assetIsSigner) return false;
+    }
+
     return true;
   } catch {
     return false;
@@ -61,7 +72,7 @@ async function verifyTx(
 
 export async function POST(req: NextRequest) {
   const body = await req.json();
-  const { momentId, minter, txSig, messageSignature, messageTs } = body;
+  const { momentId, minter, txSig, assetAddress, messageSignature, messageTs } = body;
 
   if (!momentId || !minter) {
     return NextResponse.json({ error: 'Missing momentId or minter' }, { status: 400 });
@@ -113,8 +124,10 @@ export async function POST(req: NextRequest) {
   const needsOnchainVerify =
     Boolean(moment.momentPda) && moment.onchainStatus !== 'FAILED';
 
-  // True when this mint was recorded by a verified on-chain mint_moment tx.
+  // Verified on-chain mint proof: the created asset address (post-redeploy) or
+  // the verified txSig (current 2-account program).
   let onchainTxSig: string | null = null;
+  let onchainAsset: string | null = null;
 
   if (needsOnchainVerify) {
     if (!txSig || txSig.startsWith('offline-') || txSig.startsWith('pending-')) {
@@ -123,14 +136,15 @@ export async function POST(req: NextRequest) {
         { status: 400 },
       );
     }
-    const ok = await verifyTx(txSig, minter, moment.momentPda);
+    const ok = await verifyTx(txSig, minter, moment.momentPda, assetAddress ?? null);
     if (!ok) {
       return NextResponse.json(
-        { error: 'Transaction verification failed: invalid signer, PDA, or program' },
+        { error: 'Transaction verification failed: invalid signer, asset, PDA, or program' },
         { status: 400 },
       );
     }
     onchainTxSig = txSig;
+    onchainAsset = assetAddress ?? null;
   } else {
     // DB-only path: require an off-chain wallet message signature
     if (!messageSignature || !messageTs) {
@@ -160,7 +174,9 @@ export async function POST(req: NextRequest) {
   //   여기서는 검증된 온체인 txSig를 민팅 증빙으로 기록한다 (서버 SPL 발행 없음).
   // DB-only 경로: momentPda가 없거나 온체인 open이 실패한 moment. 메시지
   //   서명으로 지갑 소유만 증명하고 오프체인 컬렉션 레코드로 남긴다.
-  const assetId = onchainTxSig
+  const assetId = onchainAsset
+    ? onchainAsset
+    : onchainTxSig
     ? `onchain-${moment.id}-${onchainTxSig.slice(0, 16)}`
     : `db-${moment.id}-${minter.slice(0, 8)}-${Date.now()}`;
 
