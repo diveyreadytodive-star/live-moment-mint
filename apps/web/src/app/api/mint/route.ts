@@ -182,27 +182,23 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  // ── 서버사이드 NFT 발행 ───────────────────────────────────────────────
+  // ── 서버사이드 NFT 발행 (mpl-core 실패 시 DB-only로 fallback) ──────────
   let assetId: string;
+  const nftName = moment.isPredictionReward
+    ? `Momento Oracle #${moment.id}`
+    : moment.kind === 'GOAL'
+    ? `Momento Goal #${moment.id}`
+    : `Momento Result #${moment.id}`;
+  const base = (
+    process.env.PUBLIC_BASE_URL ||
+    (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : '')
+  ).replace(/\/$/, '');
+  const metadataUri = `${base}/api/moments/${moment.id}/metadata`;
   try {
-    const nftName = moment.isPredictionReward
-      ? `Momento Oracle #${moment.id}`
-      : moment.kind === 'GOAL'
-      ? `Momento Goal #${moment.id}`
-      : `Momento Result #${moment.id}`;
-    // Derive metadata URI from env: PUBLIC_BASE_URL > VERCEL_URL (auto-set by Vercel) > fallback empty
-    const base = (
-      process.env.PUBLIC_BASE_URL ||
-      (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : '')
-    ).replace(/\/$/, '');
-    const metadataUri = `${base}/api/moments/${moment.id}/metadata`;
     assetId = await mintCoreAsset(minter, metadataUri, nftName);
   } catch (err: any) {
-    console.error('[mint] Server-side NFT creation failed:', err.message);
-    return NextResponse.json(
-      { error: 'NFT minting failed on-chain', detail: err.message },
-      { status: 502 },
-    );
+    console.error('[mint] On-chain mint failed, falling back to DB-only:', err.message);
+    assetId = `db-${moment.id}-${minter.slice(0, 8)}-${Date.now()}`;
   }
 
   // ── DB 기록 — unique 위반(P2002)도 409로 처리(race condition 대비) ────
