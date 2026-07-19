@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
-import { Connection, Keypair } from '@solana/web3.js';
+import { Connection, Keypair, PublicKey } from '@solana/web3.js';
 import nacl from 'tweetnacl';
 import bs58 from 'bs58';
 
@@ -62,33 +62,37 @@ async function verifyTx(
   }
 }
 
-async function mintCoreAsset(
+const MEMO_PROGRAM = new PublicKey('MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr');
+
+async function mintWithMemo(
   minterAddress: string,
-  metadataUri: string,
+  momentId: number,
   name: string,
+  metadataUri: string,
 ): Promise<string> {
-  const { createUmi } = await import('@metaplex-foundation/umi-bundle-defaults');
-  const { mplCore, createV1 } = await import('@metaplex-foundation/mpl-core');
-  const { keypairIdentity, generateSigner, publicKey: umiPk } =
-    await import('@metaplex-foundation/umi');
-  const { fromWeb3JsKeypair } = await import('@metaplex-foundation/umi-web3js-adapters');
-
   const keeperKp = loadKeeperKp();
-  if (!keeperKp) throw new Error('KEEPER_PRIVATE_KEY not set — cannot mint on-chain asset');
+  if (!keeperKp) throw new Error('KEEPER_PRIVATE_KEY not set');
 
-  const umi = createUmi(RPC)
-    .use(mplCore())
-    .use(keypairIdentity(fromWeb3JsKeypair(keeperKp)));
-  const asset = generateSigner(umi);
+  const conn = new Connection(RPC, 'confirmed');
+  const memo = JSON.stringify({ momento: 1, momentId, name, owner: minterAddress, uri: metadataUri });
 
-  await createV1(umi, {
-    asset,
-    name,
-    uri: metadataUri,
-    owner: umiPk(minterAddress),
-  }).sendAndConfirm(umi);
+  const { TransactionInstruction, Transaction, SystemProgram } = await import('@solana/web3.js');
 
-  return asset.publicKey.toString();
+  const ix = new TransactionInstruction({
+    programId: MEMO_PROGRAM,
+    keys: [{ pubkey: keeperKp.publicKey, isSigner: true, isWritable: false }],
+    data: Buffer.from(memo, 'utf-8'),
+  });
+
+  const tx = new Transaction().add(ix);
+  const { blockhash, lastValidBlockHeight } = await conn.getLatestBlockhash();
+  tx.recentBlockhash = blockhash;
+  tx.feePayer = keeperKp.publicKey;
+  tx.sign(keeperKp);
+
+  const sig = await conn.sendRawTransaction(tx.serialize());
+  await conn.confirmTransaction({ signature: sig, blockhash, lastValidBlockHeight }, 'confirmed');
+  return sig;
 }
 
 export async function POST(req: NextRequest) {
@@ -195,7 +199,7 @@ export async function POST(req: NextRequest) {
   ).replace(/\/$/, '');
   const metadataUri = `${base}/api/moments/${moment.id}/metadata`;
   try {
-    assetId = await mintCoreAsset(minter, metadataUri, nftName);
+    assetId = await mintWithMemo(minter, moment.id, nftName, metadataUri);
   } catch (err: any) {
     console.error('[mint] On-chain mint failed, falling back to DB-only:', err.message);
     assetId = `db-${moment.id}-${minter.slice(0, 8)}-${Date.now()}`;
@@ -208,11 +212,12 @@ export async function POST(req: NextRequest) {
         momentId,
         minterPubkey: minter,
         assetId,
-        txSig: txSig ?? `no-tx-${Date.now()}`,
+        txSig: assetId.startsWith('db-') ? (txSig ?? `no-tx-${Date.now()}`) : assetId,
         createdAt: nowSec,
       },
     });
-    return NextResponse.json({ mint, assetId });
+    const memoTxSig = assetId.startsWith('db-') ? null : assetId;
+    return NextResponse.json({ mint, assetId, memoTxSig });
   } catch (err: any) {
     if (err?.code === 'P2002') {
       return NextResponse.json({ error: 'Already minted (race)' }, { status: 409 });
